@@ -1,0 +1,53 @@
+/* ============================================
+   PAGINATION — PAGE NAVIGATION
+   ============================================ */
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pagination-btn {
+  background: #0d0d0d;
+  border: 1px solid #1a3a1a;
+  color: #00ff41;
+  padding: 6px 14px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pagination-btn:hover:not(.disabled) {
+  background: rgba(0, 255, 65, 0.08);
+  border-color: #00ff41;
+}
+
+.pagination-btn.disabled {
+  color: #333;
+  border-color: #1a1a1a;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.pagination-info {
+  color: #666;
+}
+
+.pagination-current {
+  color: #00ff41;
+  font-weight: 700;
+}
+
+.pagination-total {
+  color: #888;
+  font-weight: 600;
+}

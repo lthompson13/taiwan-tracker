@@ -1,0 +1,36 @@
+/* ============================================
+   PANEL — BORDERED CONTAINER
+   ============================================ */
+
+.panel {
+  background: #0d0d0d;
+  border: 1px solid #1a3a1a;
+  margin-bottom: 16px;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #111111;
+  border-bottom: 1px solid #1a3a1a;
+  padding: 8px 14px;
+}
+
+.panel-header-decoration {
+  color: #1a3a1a;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.panel-header-title {
+  color: #00ff41;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.panel-content {
+  padding: 16px;
+}

@@ -1,0 +1,132 @@
+/* ============================================
+   TAIWAN LEGISLATIVE TRACKER — GLOBAL THEME
+   CIA MILITARY COMMAND CENTER AESTHETIC
+   ============================================ */
+
+/* --- CSS Reset --- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: #0a0a0a;
+  color: #c0c0c0;
+  font-family: 'IBM Plex Mono', monospace;
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* --- Scanline Overlay --- */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 1px,
+    rgba(0, 255, 65, 0.03) 1px,
+    rgba(0, 255, 65, 0.03) 2px
+  );
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.03;
+}
+
+/* --- Scrollbar Styling --- */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #00ff41;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #00cc34;
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #00ff41 #0a0a0a;
+}
+
+/* --- Link Styling --- */
+a {
+  color: #00ff41;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: #33ff6b;
+}
+
+/* --- Selection Styling --- */
+::selection {
+  background: #00ff41;
+  color: #000000;
+}
+
+::-moz-selection {
+  background: #00ff41;
+  color: #000000;
+}
+
+/* --- Utility Classes --- */
+.text-green {
+  color: #00ff41;
+}
+
+.text-amber {
+  color: #ffb000;
+}
+
+.text-red {
+  color: #ff0040;
+}
+
+.text-white {
+  color: #e0e0e0;
+}
+
+/* --- Base Element Styling --- */
+h1, h2, h3, h4, h5, h6 {
+  color: #e0e0e0;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+button {
+  font-family: 'IBM Plex Mono', monospace;
+  cursor: pointer;
+}
+
+input, select, textarea {
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}

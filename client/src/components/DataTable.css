@@ -1,0 +1,90 @@
+/* ============================================
+   DATA TABLE — SORTABLE GRID
+   ============================================ */
+
+.datatable-wrapper {
+  overflow-x: auto;
+}
+
+.datatable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.datatable-th {
+  text-align: left;
+  padding: 10px 12px;
+  color: #00ff41;
+  font-weight: 600;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-bottom: 1px solid #00ff41;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.datatable-th.sortable {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.datatable-th.sortable:hover {
+  background: rgba(0, 255, 65, 0.05);
+}
+
+.datatable-sort-indicator {
+  margin-left: 6px;
+  font-size: 0.55rem;
+}
+
+.datatable-sort-indicator.dimmed {
+  opacity: 0.2;
+}
+
+.datatable-sort-indicator.active {
+  color: #00ff41;
+  opacity: 1;
+}
+
+.datatable-row {
+  border-bottom: 1px solid #151515;
+  transition: background 0.1s ease;
+}
+
+.datatable-row:hover {
+  background: #111111;
+}
+
+.datatable-row.clickable {
+  cursor: pointer;
+}
+
+.datatable-row.clickable:hover {
+  background: rgba(0, 255, 65, 0.04);
+}
+
+.datatable-td {
+  padding: 10px 12px;
+  color: #c0c0c0;
+  vertical-align: middle;
+}
+
+/* --- Empty State --- */
+.datatable-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 20px;
+  color: #555;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.datatable-empty-icon {
+  color: #ffb000;
+  font-weight: 700;
+}
