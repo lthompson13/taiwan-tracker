@@ -9,9 +9,8 @@
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "npm run dev --prefix server",
     "dev:client": "npm run dev --prefix client",
-    "build:full": "npm install --prefix server && npm install --prefix client && npm run build --prefix client",
-    "start": "node server/index.js",
-    "deploy": "node deploy.js"
+    "build": "npm install --prefix server && npm install --prefix client && npm run build --prefix client",
+    "start": "node server/index.js"
   },
   "dependencies": {
     "@google-cloud/translate": "^9.3.0",
@@ -21,7 +20,6 @@
     "node-fetch": "^2.7.0"
   },
   "devDependencies": {
-    "archiver": "^7.0.1",
     "concurrently": "^9.1.2"
   }
 }
