@@ -2,6 +2,11 @@ const express = require('express');
 const router = express.Router();
 const { fetchFromLY } = require('../lib/lyApi');
 const { translateBill } = require('../lib/translateFields');
+const {
+  BILL_CATEGORY_MAP,
+  BILL_STATUS_MAP,
+  mapValue,
+} = require('../lib/filterMaps');
 
 /**
  * Map a raw bill object from the LY API to English keys.
@@ -31,27 +36,45 @@ function mapBill(raw) {
 }
 
 /**
+ * Build the upstream LY query params from incoming request query.
+ * Translates English-friendly keys/values to the Chinese keys/values
+ * the LY API expects.
+ *
+ * Supported incoming params (all optional):
+ *   page, limit              — pagination, forwarded as-is
+ *   term                     — legislative term number, e.g. 11
+ *   session                  — legislative session number
+ *   category                 — Legislation / Budget / Resolution / Other
+ *   status                   — Scheduled for Plenary / Review Complete / etc.
+ *   proposer                 — proposer name (passed through)
+ */
+function buildBillQuery(reqQuery) {
+  const out = {};
+
+  if (reqQuery.page) out.page = reqQuery.page;
+  if (reqQuery.limit) out.limit = reqQuery.limit;
+
+  if (reqQuery.term) out['屆'] = reqQuery.term;
+  if (reqQuery.session) out['會期'] = reqQuery.session;
+
+  const category = mapValue(reqQuery.category, BILL_CATEGORY_MAP);
+  if (category) out['議案類別'] = category;
+
+  const status = mapValue(reqQuery.status, BILL_STATUS_MAP);
+  if (status) out['議案狀態'] = status;
+
+  if (reqQuery.proposer) out['提案單位/提案委員'] = reqQuery.proposer;
+
+  return out;
+}
+
+/**
  * GET /
  * List bills with pagination and optional filters.
- * Supported query params: page, limit, 屆 (term), status, category, and others.
+ * Filters (term, session, category, status, proposer) are forwarded to the LY API.
  */
 router.get('/', async (req, res) => {
-  // Build query params to forward to the LY API
-  const queryParams = { ...req.query };
-
-  // Allow English aliases for common filters
-  if (queryParams.term) {
-    queryParams['屆'] = queryParams.term;
-    delete queryParams.term;
-  }
-  if (queryParams.status) {
-    queryParams['議案狀態'] = queryParams.status;
-    delete queryParams.status;
-  }
-  if (queryParams.category) {
-    queryParams['議案類別'] = queryParams.category;
-    delete queryParams.category;
-  }
+  const queryParams = buildBillQuery(req.query);
 
   const data = await fetchFromLY('bills', queryParams);
 

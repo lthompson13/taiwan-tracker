@@ -15,15 +15,19 @@ const CATEGORY_OPTIONS = [
   { value: 'Other', label: 'Other' },
 ];
 
+// Status options reflect the actual taxonomy used by the LY API (verified
+// via server/scripts/discover-statuses.js). Each value must match a key
+// in BILL_STATUS_MAP in server/lib/filterMaps.js.
 const STATUS_OPTIONS = [
   { value: '', label: 'ALL STATUSES' },
   { value: 'Scheduled for Plenary', label: 'Scheduled for Plenary' },
+  { value: 'Scheduled for Plenary (Discussion)', label: 'Scheduled for Plenary (Discussion)' },
   { value: 'Review Complete', label: 'Review Complete' },
-  { value: 'Third Reading (Passed)', label: 'Third Reading (Passed)' },
+  { value: 'Review Complete (Overdue)', label: 'Review Complete (Overdue)' },
   { value: 'Referred for Review', label: 'Referred for Review' },
-  { value: 'Not Reviewed', label: 'Not Reviewed' },
-  { value: 'Returned', label: 'Returned' },
-  { value: 'Withdrawn', label: 'Withdrawn' },
+  { value: 'Direct to Second Reading', label: 'Direct to Second Reading' },
+  { value: 'Third Reading (Passed)', label: 'Third Reading (Passed)' },
+  { value: 'Reply for Reference', label: 'Reply for Reference' },
 ];
 
 function getStatusBadgeType(status) {
@@ -55,7 +59,14 @@ function Bills() {
         setLoading(true);
         setError(null);
 
-        const params = new URLSearchParams({ page: page.toString(), limit: LIMIT.toString() });
+        const params = new URLSearchParams({
+          page: page.toString(),
+          limit: LIMIT.toString(),
+        });
+        // Server-side filtering: forward filter values as query params.
+        if (categoryFilter) params.set('category', categoryFilter);
+        if (statusFilter) params.set('status', statusFilter);
+
         const res = await fetch(`/api/bills?${params}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
@@ -71,7 +82,7 @@ function Bills() {
     };
 
     fetchBills();
-  }, [page]);
+  }, [page, categoryFilter, statusFilter]);
 
   const handleFilterChange = (key, value) => {
     if (key === 'category') setCategoryFilter(value);
@@ -79,14 +90,13 @@ function Bills() {
     setPage(1);
   };
 
-  // Client-side filtering
+  // Search remains client-side (only filters were moved to the server).
+  // Server-side filters: category, status.
   const filteredBills = bills.filter((bill) => {
     const matchesSearch = !search ||
       (bill.billName && bill.billName.toLowerCase().includes(search.toLowerCase())) ||
       (bill.proposer && bill.proposer.toLowerCase().includes(search.toLowerCase()));
-    const matchesCategory = !categoryFilter || bill.category === categoryFilter;
-    const matchesStatus = !statusFilter || bill.status === statusFilter;
-    return matchesSearch && matchesCategory && matchesStatus;
+    return matchesSearch;
   });
 
   const columns = [

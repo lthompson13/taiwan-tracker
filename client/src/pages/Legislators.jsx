@@ -44,7 +44,13 @@ function Legislators() {
         setLoading(true);
         setError(null);
 
-        const params = new URLSearchParams({ page: page.toString(), limit: LIMIT.toString() });
+        const params = new URLSearchParams({
+          page: page.toString(),
+          limit: LIMIT.toString(),
+        });
+        // Server-side filtering: forward filter values as query params.
+        if (partyFilter) params.set('party', partyFilter);
+
         const res = await fetch(`/api/legislators?${params}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
@@ -60,7 +66,7 @@ function Legislators() {
     };
 
     fetchLegislators();
-  }, [page]);
+  }, [page, partyFilter]);
 
   const handleFilterChange = (key, value) => {
     if (key === 'party') {
@@ -69,13 +75,13 @@ function Legislators() {
     }
   };
 
-  // Client-side filtering
+  // Search remains client-side (only filters were moved to the server).
+  // Server-side filters: party.
   const filteredLegislators = legislators.filter((leg) => {
     const matchesSearch = !search ||
       (leg.name && leg.name.toLowerCase().includes(search.toLowerCase())) ||
       (leg.nameEn && leg.nameEn.toLowerCase().includes(search.toLowerCase()));
-    const matchesParty = !partyFilter || leg.party === partyFilter;
-    return matchesSearch && matchesParty;
+    return matchesSearch;
   });
 
   const columns = [

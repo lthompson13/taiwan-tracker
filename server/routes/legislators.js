@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { fetchFromLY } = require('../lib/lyApi');
 const { translateLegislator } = require('../lib/translateFields');
+const { PARTY_MAP, mapValue } = require('../lib/filterMaps');
 
 /**
  * Map a raw legislator object from the LY API to English keys.
@@ -26,11 +27,42 @@ function mapLegislator(raw) {
 }
 
 /**
+ * Build the upstream LY query params from incoming request query.
+ * Translates English-friendly keys/values to the Chinese keys/values
+ * the LY API expects.
+ *
+ * Supported incoming params (all optional):
+ *   page, limit              — pagination, forwarded as-is
+ *   party                    — DPP / KMT / TPP / NPP / Independent (or full name)
+ *   term                     — legislative term number, e.g. 11
+ *   district                 — district name (passed through)
+ *   caucus                   — caucus name (passed through)
+ */
+function buildLegislatorQuery(reqQuery) {
+  const out = {};
+
+  if (reqQuery.page) out.page = reqQuery.page;
+  if (reqQuery.limit) out.limit = reqQuery.limit;
+
+  const party = mapValue(reqQuery.party, PARTY_MAP);
+  if (party) out['黨籍'] = party;
+
+  if (reqQuery.term) out['屆'] = reqQuery.term;
+  if (reqQuery.district) out['選區名稱'] = reqQuery.district;
+  if (reqQuery.caucus) out['黨團'] = reqQuery.caucus;
+
+  return out;
+}
+
+/**
  * GET /
- * List legislators with pagination. Forwards query params to the LY API.
+ * List legislators with pagination and optional filters.
+ * Filters (party, term, district, caucus) are forwarded to the LY API.
  */
 router.get('/', async (req, res) => {
-  const data = await fetchFromLY('legislators', req.query);
+  const queryParams = buildLegislatorQuery(req.query);
+
+  const data = await fetchFromLY('legislators', queryParams);
 
   if (data.error) {
     return res.status(data.status || 500).json(data);
