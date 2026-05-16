@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { fetchFromLY } = require('../lib/lyApi');
 const { translateBill } = require('../lib/translateFields');
+const { getStatus: getTranslationStatus } = require('../lib/translate');
 const {
   BILL_CATEGORY_MAP,
   BILL_STATUS_MAP,
@@ -91,6 +92,7 @@ router.get('/', async (req, res) => {
     totalPages: data.total_page || 0,
     page: data.page || 1,
     limit: data.limit || 20,
+    translated: getTranslationStatus().healthy,
     bills: translated,
   });
 });

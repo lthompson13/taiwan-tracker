@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
+import TranslationBanner from './TranslationBanner';
 import './Layout.css';
 
 const NAV_ITEMS = [
@@ -56,6 +57,9 @@ function Layout() {
         </aside>
 
         <main className="layout-main">
+          {/* Translation status warning (renders nothing when healthy). Lives
+              inside .layout-main so the fixed topbar/sidebar don't overlay it. */}
+          <TranslationBanner />
           <Outlet />
         </main>
       </div>

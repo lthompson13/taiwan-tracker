@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { fetchFromLY } = require('../lib/lyApi');
 const { translateLegislator } = require('../lib/translateFields');
+const { getStatus: getTranslationStatus } = require('../lib/translate');
 const { PARTY_MAP, mapValue } = require('../lib/filterMaps');
 
 /**
@@ -79,6 +80,7 @@ router.get('/', async (req, res) => {
     totalPages: data.total_page || 0,
     page: data.page || 1,
     limit: data.limit || 20,
+    translated: getTranslationStatus().healthy,
     legislators: translated,
   });
 });

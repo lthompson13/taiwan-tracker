@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { fetchFromLY } = require('../lib/lyApi');
 const { translateInterpellation } = require('../lib/translateFields');
+const { getStatus: getTranslationStatus } = require('../lib/translate');
 
 /**
  * Map a raw interpellation object from the LY API to English keys.
@@ -42,6 +43,7 @@ router.get('/', async (req, res) => {
     totalPages: data.total_page || 0,
     page: data.page || 1,
     limit: data.limit || 20,
+    translated: getTranslationStatus().healthy,
     interpellations: translated,
   });
 });

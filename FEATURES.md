@@ -11,9 +11,8 @@ This is a prioritized backlog. Work from top to bottom. Each feature is describe
 These are bugs and gaps in the current build that undermine usability. Fix these before adding new features.
 
 ### 1.2 Add translation failure warning
-**Status:** Not started
-**Problem:** If GOOGLE_TRANSLATE_API_KEY is missing or invalid, content silently passes through in Chinese with no indication to the user.
-**Solution:** Add a visible banner or indicator on the frontend when content is not being translated. The backend should include a field in its responses (e.g., "translated": true/false) that the frontend checks.
+**Status:** Completed May 2026
+**What was done:** Added health tracking to `server/lib/translate.js` — exports `isEnabled()` and `getStatus()` that report whether the API key is configured and whether recent API calls have succeeded (3 consecutive failures flips status to unhealthy). New `/api/translation-status` endpoint exposes this to the frontend. All four list routes (bills, legislators, committees, interpellations) now include `translated: <bool>` in their response. New `client/src/components/TranslationBanner.jsx` polls the status endpoint on mount and every 60s, rendering a red "TRANSLATION OFFLINE" banner when the API key is missing or a yellow "TRANSLATION DEGRADED" banner when the API is failing. Banner is rendered in `Layout.jsx` so it appears site-wide.
 
 ### 1.4 Fix interpellation detail navigation
 **Status:** Not started

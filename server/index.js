@@ -13,6 +13,13 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+// Translation status — frontend uses this to decide whether to show a
+// "translation disabled / impaired" banner. See FEATURES.md 1.2.
+const { getStatus: getTranslationStatus } = require('./lib/translate');
+app.get('/api/translation-status', (req, res) => {
+  res.json(getTranslationStatus());
+});
+
 app.use('/api/legislators', require('./routes/legislators'));
 app.use('/api/bills', require('./routes/bills'));
 app.use('/api/committees', require('./routes/committees'));

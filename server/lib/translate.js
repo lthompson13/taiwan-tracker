@@ -48,8 +48,46 @@ const MAX_CACHE_SIZE = 5000;
 
 let translate = null;
 
+// Translation health tracking.
+// "healthy" means: API key is configured AND recent API calls have succeeded.
+// "enabled" means: API key is configured (regardless of whether calls succeed).
+// We track consecutive errors so a single transient failure doesn't flip the
+// status; ERROR_THRESHOLD consecutive failures marks the API as unhealthy.
+const ERROR_THRESHOLD = 3;
+let apiErrorCount = 0;
+let lastError = null;
+let lastSuccessAt = null;
+
+function isEnabled() {
+  return Boolean(
+    process.env.GOOGLE_TRANSLATE_API_KEY &&
+    process.env.GOOGLE_TRANSLATE_API_KEY !== 'your-key-here'
+  );
+}
+
+function getStatus() {
+  return {
+    enabled: isEnabled(),
+    healthy: isEnabled() && apiErrorCount < ERROR_THRESHOLD,
+    errorCount: apiErrorCount,
+    lastError,
+    lastSuccessAt,
+  };
+}
+
+function recordSuccess() {
+  apiErrorCount = 0;
+  lastError = null;
+  lastSuccessAt = new Date().toISOString();
+}
+
+function recordError(err) {
+  apiErrorCount += 1;
+  lastError = err && err.message ? err.message : String(err);
+}
+
 function getClient() {
-  if (!translate && process.env.GOOGLE_TRANSLATE_API_KEY && process.env.GOOGLE_TRANSLATE_API_KEY !== 'your-key-here') {
+  if (!translate && isEnabled()) {
     translate = new Translate({ key: process.env.GOOGLE_TRANSLATE_API_KEY });
   }
   return translate;
@@ -79,6 +117,7 @@ async function translateText(text) {
 
   try {
     const [translation] = await client.translate(trimmed, { from: 'zh-TW', to: 'en' });
+    recordSuccess();
     // Evict oldest entries if cache is too large
     if (cache.size >= MAX_CACHE_SIZE) {
       const firstKey = cache.keys().next().value;
@@ -87,6 +126,7 @@ async function translateText(text) {
     cache.set(trimmed, translation);
     return translation;
   } catch (err) {
+    recordError(err);
     console.error('[translate] API error:', err.message);
     return text; // Return original on failure
   }
@@ -139,6 +179,7 @@ async function translateBatch(texts) {
 
   try {
     const [translations] = await client.translate(apiTexts, { from: 'zh-TW', to: 'en' });
+    recordSuccess();
     const translatedArray = Array.isArray(translations) ? translations : [translations];
 
     for (let j = 0; j < apiIndices.length; j++) {
@@ -153,6 +194,7 @@ async function translateBatch(texts) {
       cache.set(apiTexts[j], translated);
     }
   } catch (err) {
+    recordError(err);
     console.error('[translateBatch] API error:', err.message);
     // Fill remaining with originals on failure
     for (const idx of apiIndices) {
@@ -163,4 +205,10 @@ async function translateBatch(texts) {
   return results;
 }
 
-module.exports = { translateText, translateBatch, staticMap };
+module.exports = {
+  translateText,
+  translateBatch,
+  staticMap,
+  isEnabled,
+  getStatus,
+};
