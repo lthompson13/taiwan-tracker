@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import Panel from '../components/Panel';
 import DataTable from '../components/DataTable';
 import Loader from '../components/Loader';
@@ -29,6 +30,8 @@ const expandedLabelStyle = {
 };
 
 function Interpellations() {
+  const location = useLocation();
+  const expandedRef = useRef(null);
   const [interpellations, setInterpellations] = useState([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -59,6 +62,26 @@ function Interpellations() {
 
     fetchInterpellations();
   }, [page]);
+
+  // Deep-link support: when the URL hash names an interpellation ID, auto-expand
+  // that row and scroll it into view once data has loaded.
+  useEffect(() => {
+    if (loading || !location.hash) return;
+    const targetId = decodeURIComponent(location.hash.slice(1));
+    if (!targetId) return;
+    const match = interpellations.find(
+      (i) => (i.interpellationId || i.subject) === targetId
+    );
+    if (match) {
+      setExpandedId(targetId);
+      // Defer scroll until the expanded panel actually renders.
+      setTimeout(() => {
+        if (expandedRef.current) {
+          expandedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 50);
+    }
+  }, [loading, interpellations, location.hash]);
 
   const columns = [
     {
@@ -135,7 +158,7 @@ function Interpellations() {
                 const itemId = item.interpellationId || item.subject;
                 if (itemId !== expandedId) return null;
                 return (
-                  <div key={itemId} style={expandedStyle}>
+                  <div key={itemId} ref={expandedRef} style={expandedStyle}>
                     <span style={expandedLabelStyle}>Full description</span>
                     <div style={{ marginBottom: '12px' }}>
                       <strong>Subject:</strong> {item.subject || '—'}

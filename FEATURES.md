@@ -15,9 +15,8 @@ These are bugs and gaps in the current build that undermine usability. Fix these
 **What was done:** Added health tracking to `server/lib/translate.js` — exports `isEnabled()` and `getStatus()` that report whether the API key is configured and whether recent API calls have succeeded (3 consecutive failures flips status to unhealthy). New `/api/translation-status` endpoint exposes this to the frontend. All four list routes (bills, legislators, committees, interpellations) now include `translated: <bool>` in their response. New `client/src/components/TranslationBanner.jsx` polls the status endpoint on mount and every 60s, rendering a red "TRANSLATION OFFLINE" banner when the API key is missing or a yellow "TRANSLATION DEGRADED" banner when the API is failing. Banner is rendered in `Layout.jsx` so it appears site-wide.
 
 ### 1.4 Fix interpellation detail navigation
-**Status:** Not started
-**Problem:** Interpellations in the Activity feed are not clickable — navigateTo is set to null.
-**Solution:** Either create an InterpellationDetail page (similar to BillDetail) or link interpellations to an expanded view within the existing Interpellations page.
+**Status:** Completed May 2026
+**What was done:** Activity feed items of type "Interpellation" now navigate to `/interpellations#<id>` (URL-encoded interpellationId). The Interpellations page reads `location.hash` on mount; once the data has loaded, it finds the matching row, sets `expandedId` so the inline detail panel renders, and smooth-scrolls the panel into view via a ref. Chose the deep-link approach over a dedicated InterpellationDetail page because interpellations are short (subject + description + meeting metadata) and the existing inline expansion already shows everything useful — no new server route or page needed.
 
 ### 1.5 Persistent translation cache
 **Status:** Not started

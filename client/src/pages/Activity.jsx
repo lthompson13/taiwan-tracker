@@ -79,7 +79,10 @@ function Activity() {
           ].filter(Boolean).join(' • '),
           category: null,
           status: null,
-          navigateTo: null,
+          // Deep-link to the Interpellations page with the row pre-expanded via URL hash.
+          navigateTo: interp.interpellationId
+            ? `/interpellations#${encodeURIComponent(interp.interpellationId)}`
+            : null,
         }));
 
         const merged = [...billItems, ...interpItems].sort((a, b) => {
