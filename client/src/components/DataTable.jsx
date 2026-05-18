@@ -41,23 +41,17 @@ function DataTable({ columns, data, onRowClick, sortable = true }) {
   const getSortIndicator = (col) => {
     if (!sortable || col.sortable === false) return null;
     if (sortKey !== col.key) {
-      return <span className="datatable-sort-indicator dimmed">{'\u25B2'}</span>;
+      return <span className="datatable-sort-indicator dimmed">{'▲'}</span>;
     }
     return (
       <span className="datatable-sort-indicator active">
-        {sortDir === 'asc' ? '\u25B2' : '\u25BC'}
+        {sortDir === 'asc' ? '▲' : '▼'}
       </span>
     );
   };
 
   if (!data || data.length === 0) {
-    return (
-      <div className="datatable-empty">
-        <span className="datatable-empty-icon">[!</span>
-        <span>NO DATA AVAILABLE</span>
-        <span className="datatable-empty-icon">]</span>
-      </div>
-    );
+    return <div className="datatable-empty">No data available</div>;
   }
 
   return (

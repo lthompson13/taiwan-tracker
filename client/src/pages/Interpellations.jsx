@@ -9,21 +9,22 @@ const LIMIT = 20;
 const expandedStyle = {
   padding: '16px',
   margin: '0 0 16px 0',
-  background: '#0d0d0d',
-  border: '1px solid #1a3a1a',
+  background: 'var(--bg-subtle)',
+  border: '1px solid var(--border-subtle)',
   borderTop: 'none',
-  color: '#c0c0c0',
-  fontSize: '0.8rem',
-  fontFamily: 'monospace',
+  borderRadius: '0 0 var(--radius-md) var(--radius-md)',
+  color: 'var(--text-primary)',
+  fontSize: '0.9rem',
   lineHeight: 1.6,
 };
 
 const expandedLabelStyle = {
-  color: '#00ff41',
-  fontSize: '0.7rem',
-  letterSpacing: '0.1em',
+  color: 'var(--text-muted)',
+  fontSize: '0.75rem',
   textTransform: 'uppercase',
-  marginBottom: '8px',
+  letterSpacing: '0.04em',
+  fontWeight: 600,
+  marginBottom: '10px',
   display: 'block',
 };
 
@@ -41,7 +42,6 @@ function Interpellations() {
       try {
         setLoading(true);
         setError(null);
-
         const params = new URLSearchParams({ page: page.toString(), limit: LIMIT.toString() });
         const res = await fetch(`/api/interpellations?${params}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -51,7 +51,7 @@ function Interpellations() {
         setTotalPages(data.totalPages || 1);
         setTotal(data.total || 0);
       } catch (err) {
-        setError('FAILED TO RETRIEVE INTERPELLATION RECORDS: ' + err.message);
+        setError('Failed to load interpellations: ' + err.message);
       } finally {
         setLoading(false);
       }
@@ -65,8 +65,8 @@ function Interpellations() {
       key: 'subject',
       label: 'Subject',
       render: (val) => (
-        <span style={{ color: '#c0c0c0', fontSize: '0.78rem' }}>
-          {val ? (val.length > 80 ? val.slice(0, 80) + '...' : val) : '—'}
+        <span style={{ color: 'var(--text-primary)' }}>
+          {val ? (val.length > 100 ? val.slice(0, 100) + '…' : val) : '—'}
         </span>
       ),
     },
@@ -76,8 +76,8 @@ function Interpellations() {
       render: (val) => {
         const names = Array.isArray(val) ? val.join(', ') : (val || '—');
         return (
-          <span style={{ color: '#00d4ff', fontSize: '0.75rem' }}>
-            {names.length > 40 ? names.slice(0, 40) + '...' : names}
+          <span style={{ color: 'var(--text-secondary)', fontSize: '0.825rem' }}>
+            {names.length > 40 ? names.slice(0, 40) + '…' : names}
           </span>
         );
       },
@@ -86,16 +86,16 @@ function Interpellations() {
       key: 'meetingDescription',
       label: 'Meeting',
       render: (val) => (
-        <span style={{ color: '#888', fontSize: '0.75rem' }}>
-          {val ? (val.length > 40 ? val.slice(0, 40) + '...' : val) : '—'}
+        <span style={{ color: 'var(--text-muted)', fontSize: '0.825rem' }}>
+          {val ? (val.length > 40 ? val.slice(0, 40) + '…' : val) : '—'}
         </span>
       ),
     },
     {
       key: 'publishDate',
-      label: 'Publish Date',
+      label: 'Publish date',
       render: (val) => (
-        <span style={{ color: '#ffb000', fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
+        <span style={{ color: 'var(--text-secondary)', fontSize: '0.825rem', whiteSpace: 'nowrap' }}>
           {val || '—'}
         </span>
       ),
@@ -109,76 +109,47 @@ function Interpellations() {
 
   return (
     <div>
-      <div style={{
-        marginBottom: '20px',
-        borderBottom: '1px solid #1a3a1a',
-        paddingBottom: '12px',
-      }}>
-        <h1 style={{
-          color: '#00ff41',
-          fontSize: '1.1rem',
-          fontWeight: 600,
-          fontFamily: 'monospace',
-          letterSpacing: '0.15em',
-          margin: 0,
-          textTransform: 'uppercase',
-        }}>
-          /// INTERPELLATION RECORDS
-        </h1>
-        <p style={{
-          color: '#555',
-          fontSize: '0.7rem',
-          fontFamily: 'monospace',
-          margin: '4px 0 0 0',
-          letterSpacing: '0.08em',
-        }}>
-          {total} RECORDS IN DATABASE — CLICK ROW TO EXPAND
+      <div style={{ marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid var(--border-subtle)' }}>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Interpellations</h1>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>
+          {total.toLocaleString()} records • Click a row to expand
         </p>
       </div>
 
       {error && (
-        <div style={{ padding: '16px', color: '#ff0040', fontFamily: 'monospace', fontSize: '0.8rem', marginBottom: '16px' }}>
-          <span>[ERROR]</span> {error}
+        <div style={{ padding: '12px 14px', background: 'var(--danger-bg)', color: 'var(--danger)', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', marginBottom: '16px' }}>
+          {error}
         </div>
       )}
 
       {loading ? (
-        <Loader text="DECODING INTERPELLATION DATA" />
+        <Loader text="Loading interpellations" />
       ) : (
-        <Panel title="INTERPELLATION LOG">
+        <Panel title="Interpellation log">
           {interpellations.length === 0 ? (
-            <div style={{ padding: '24px', textAlign: 'center', color: '#555', fontFamily: 'monospace' }}>
-              NO DATA AVAILABLE
-            </div>
+            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>No data available.</div>
           ) : (
             <div>
-              <DataTable
-                columns={columns}
-                data={interpellations}
-                onRowClick={handleRowClick}
-              />
-              {/* Expanded detail panel */}
+              <DataTable columns={columns} data={interpellations} onRowClick={handleRowClick} />
               {expandedId && interpellations.map((item) => {
                 const itemId = item.interpellationId || item.subject;
                 if (itemId !== expandedId) return null;
                 return (
                   <div key={itemId} style={expandedStyle}>
-                    <span style={expandedLabelStyle}>/// FULL DESCRIPTION</span>
+                    <span style={expandedLabelStyle}>Full description</span>
                     <div style={{ marginBottom: '12px' }}>
-                      <strong style={{ color: '#00ff41' }}>SUBJECT:</strong>{' '}
-                      <span>{item.subject || '—'}</span>
+                      <strong>Subject:</strong> {item.subject || '—'}
                     </div>
                     {item.description && (
                       <div style={{ marginBottom: '12px' }}>
-                        <strong style={{ color: '#00ff41' }}>DESCRIPTION:</strong>{' '}
-                        <span>{item.description}</span>
+                        <strong>Description:</strong> {item.description}
                       </div>
                     )}
-                    <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginTop: '12px', color: '#888', fontSize: '0.75rem' }}>
-                      <span>TERM: {item.term || '—'}</span>
-                      <span>SESSION: {item.session || '—'}</span>
-                      <span>MEETING #: {item.meetingNumber || '—'}</span>
-                      <span>LEGISLATORS: {Array.isArray(item.legislators) ? item.legislators.join(', ') : (item.legislators || '—')}</span>
+                    <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginTop: '12px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                      <span>Term: {item.term || '—'}</span>
+                      <span>Session: {item.session || '—'}</span>
+                      <span>Meeting #: {item.meetingNumber || '—'}</span>
+                      <span>Legislators: {Array.isArray(item.legislators) ? item.legislators.join(', ') : (item.legislators || '—')}</span>
                     </div>
                   </div>
                 );
@@ -189,11 +160,7 @@ function Interpellations() {
       )}
 
       {!loading && totalPages > 1 && (
-        <Pagination
-          page={page}
-          totalPages={totalPages}
-          onPageChange={setPage}
-        />
+        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
       )}
     </div>
   );

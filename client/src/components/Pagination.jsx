@@ -12,11 +12,11 @@ function Pagination({ page, totalPages, onPageChange }) {
         disabled={isFirstPage}
         type="button"
       >
-        &laquo; PREV
+        &laquo; Previous
       </button>
 
       <span className="pagination-info">
-        PAGE <span className="pagination-current">{page}</span> OF{' '}
+        Page <span className="pagination-current">{page}</span> of{' '}
         <span className="pagination-total">{totalPages}</span>
       </span>
 
@@ -26,7 +26,7 @@ function Pagination({ page, totalPages, onPageChange }) {
         disabled={isLastPage}
         type="button"
       >
-        NEXT &raquo;
+        Next &raquo;
       </button>
     </div>
   );

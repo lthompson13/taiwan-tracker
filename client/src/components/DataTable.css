@@ -1,5 +1,5 @@
 /* ============================================
-   DATA TABLE — SORTABLE GRID
+   DATA TABLE
    ============================================ */
 
 .datatable-wrapper {
@@ -9,18 +9,19 @@
 .datatable {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.8rem;
+  font-size: 0.875rem;
 }
 
 .datatable-th {
   text-align: left;
-  padding: 10px 12px;
-  color: #00ff41;
+  padding: 10px 14px;
+  color: var(--text-secondary);
   font-weight: 600;
-  font-size: 0.7rem;
-  letter-spacing: 0.1em;
+  font-size: 0.75rem;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
-  border-bottom: 1px solid #00ff41;
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border-default);
   white-space: nowrap;
   user-select: none;
 }
@@ -31,60 +32,48 @@
 }
 
 .datatable-th.sortable:hover {
-  background: rgba(0, 255, 65, 0.05);
+  background: var(--bg-hover);
+  color: var(--navy);
 }
 
 .datatable-sort-indicator {
   margin-left: 6px;
-  font-size: 0.55rem;
+  font-size: 0.6rem;
 }
 
 .datatable-sort-indicator.dimmed {
-  opacity: 0.2;
+  opacity: 0.3;
 }
 
 .datatable-sort-indicator.active {
-  color: #00ff41;
+  color: var(--navy);
   opacity: 1;
 }
 
 .datatable-row {
-  border-bottom: 1px solid #151515;
+  border-bottom: 1px solid var(--border-subtle);
   transition: background 0.1s ease;
 }
 
 .datatable-row:hover {
-  background: #111111;
+  background: var(--bg-hover);
 }
 
 .datatable-row.clickable {
   cursor: pointer;
 }
 
-.datatable-row.clickable:hover {
-  background: rgba(0, 255, 65, 0.04);
-}
-
 .datatable-td {
-  padding: 10px 12px;
-  color: #c0c0c0;
+  padding: 12px 14px;
+  color: var(--text-primary);
   vertical-align: middle;
 }
 
-/* --- Empty State --- */
 .datatable-empty {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
   padding: 40px 20px;
-  color: #555;
-  font-size: 0.8rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.datatable-empty-icon {
-  color: #ffb000;
-  font-weight: 700;
+  color: var(--text-muted);
+  font-size: 0.875rem;
 }

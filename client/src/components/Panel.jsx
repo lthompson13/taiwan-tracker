@@ -5,7 +5,6 @@ function Panel({ title, children, className = '' }) {
     <div className={`panel ${className}`}>
       {title && (
         <div className="panel-header">
-          <span className="panel-header-decoration">///</span>
           <span className="panel-header-title">{title}</span>
         </div>
       )}

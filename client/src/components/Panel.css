@@ -1,34 +1,29 @@
 /* ============================================
-   PANEL — BORDERED CONTAINER
+   PANEL — CARD CONTAINER
    ============================================ */
 
 .panel {
-  background: #0d0d0d;
-  border: 1px solid #1a3a1a;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
   margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
 }
 
 .panel-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: #111111;
-  border-bottom: 1px solid #1a3a1a;
-  padding: 8px 14px;
-}
-
-.panel-header-decoration {
-  color: #1a3a1a;
-  font-size: 0.7rem;
-  font-weight: 700;
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  padding: 10px 16px;
 }
 
 .panel-header-title {
-  color: #00ff41;
-  font-size: 0.75rem;
+  color: var(--text-primary);
+  font-size: 0.85rem;
   font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0;
 }
 
 .panel-content {

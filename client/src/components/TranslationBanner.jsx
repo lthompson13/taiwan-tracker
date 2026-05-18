@@ -1,16 +1,9 @@
 import { useEffect, useState } from 'react';
 
 /**
- * TranslationBanner — fetches /api/translation-status on mount and renders a
- * warning strip across the top of the app when translation is unavailable.
- *
- * Three states:
- *  - healthy: API key configured AND recent calls succeeded → no banner.
- *  - disabled: API key missing/placeholder → red "OFFLINE" banner.
- *  - impaired: API key present but recent calls failed → yellow "ERROR" banner.
- *
- * The endpoint is cheap (no upstream calls) so we re-check periodically in case
- * a transient outage clears.
+ * TranslationBanner — alerts the user when the translation service is
+ * disabled (missing API key) or impaired (recent API errors). Renders
+ * nothing when healthy.
  */
 function TranslationBanner() {
   const [status, setStatus] = useState(null);
@@ -25,14 +18,12 @@ function TranslationBanner() {
         const data = await res.json();
         if (!cancelled) setStatus(data);
       } catch {
-        // Network error reaching our own server — leave status as null
-        // so we don't render a misleading banner. The page's own error
-        // handling will surface the connectivity issue.
+        // ignore — page-level error handling surfaces connectivity issues
       }
     };
 
     fetchStatus();
-    const interval = setInterval(fetchStatus, 60_000); // recheck every minute
+    const interval = setInterval(fetchStatus, 60_000);
 
     return () => {
       cancelled = true;
@@ -43,37 +34,34 @@ function TranslationBanner() {
   if (!status || status.healthy) return null;
 
   const isDisabled = !status.enabled;
-  // High-contrast palette: dark site background needs vivid alert colors.
-  const bgColor = isDisabled ? '#cc0033' : '#cc7700';
-  const fgColor = '#ffffff';
-  const detailColor = isDisabled ? '#ffcccc' : '#ffe5b3';
-  const label = isDisabled ? 'TRANSLATION OFFLINE' : 'TRANSLATION DEGRADED';
+
+  const label = isDisabled ? 'Translation offline' : 'Translation degraded';
   const detail = isDisabled
     ? 'GOOGLE_TRANSLATE_API_KEY is not configured. Content displayed in original Chinese.'
     : `Recent translation requests failed (${status.errorCount} consecutive errors). Some content may appear in Chinese.`;
+
+  const bg = isDisabled ? 'var(--danger-bg)' : 'var(--warning-bg)';
+  const fg = isDisabled ? 'var(--danger)' : 'var(--warning)';
+  const border = fg;
 
   return (
     <div
       role="alert"
       style={{
-        background: bgColor,
-        color: fgColor,
-        padding: '10px 16px',
-        fontFamily: 'monospace',
-        fontSize: '0.8rem',
-        letterSpacing: '0.1em',
-        textTransform: 'uppercase',
+        background: bg,
+        color: fg,
+        border: `1px solid ${border}`,
+        borderRadius: 'var(--radius-md)',
+        padding: '10px 14px',
+        fontSize: '0.85rem',
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'baseline',
         gap: '12px',
         marginBottom: '16px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.6)',
       }}
     >
-      <span style={{ fontWeight: 700 }}>[!] {label}</span>
-      <span style={{ color: detailColor, textTransform: 'none', letterSpacing: 'normal' }}>
-        {detail}
-      </span>
+      <span style={{ fontWeight: 600 }}>{label}.</span>
+      <span style={{ color: 'var(--text-secondary)' }}>{detail}</span>
     </div>
   );
 }

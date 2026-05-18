@@ -1,50 +1,47 @@
 /* ============================================
-   LAYOUT — MILITARY COMMAND CENTER FRAME
+   LAYOUT — APP CHROME
    ============================================ */
+
+.layout {
+  background: var(--bg-base);
+  min-height: 100vh;
+}
 
 /* --- Top Bar --- */
 .layout-topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #0d0d0d;
-  border-bottom: 1px solid #1a3a1a;
-  padding: 10px 20px;
-  height: 56px;
+  background: var(--navy);
+  color: var(--text-inverse);
+  padding: 0 24px;
+  height: var(--topbar-height);
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   z-index: 100;
+  box-shadow: var(--shadow-md);
 }
 
 .layout-topbar-left {
   display: flex;
   align-items: baseline;
-  gap: 16px;
+  gap: 14px;
 }
 
 .layout-topbar-title {
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 700;
-  color: #00ff41;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  color: var(--text-inverse);
+  letter-spacing: -0.005em;
   white-space: nowrap;
 }
 
-.layout-topbar-classified {
-  font-size: 0.7rem;
-  color: #555;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
 .layout-topbar-subtitle {
-  font-size: 0.7rem;
-  color: #666;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 400;
 }
 
 .layout-topbar-right {
@@ -53,46 +50,36 @@
   gap: 12px;
 }
 
-.layout-classification-marker {
-  font-size: 0.65rem;
-  font-weight: 600;
-  color: #ffb000;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  border: 1px solid rgba(255, 176, 0, 0.3);
-  padding: 2px 8px;
-  background: rgba(255, 176, 0, 0.05);
-}
-
-/* --- Body Wrapper --- */
+/* --- Body --- */
 .layout-body {
   display: flex;
-  margin-top: 56px;
-  min-height: calc(100vh - 56px - 32px);
+  margin-top: var(--topbar-height);
+  min-height: calc(100vh - var(--topbar-height) - var(--statusbar-height));
 }
 
 /* --- Sidebar --- */
 .layout-sidebar {
-  width: 220px;
-  min-width: 220px;
-  background: #0d0d0d;
-  border-right: 1px solid #1a3a1a;
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
+  background: var(--bg-subtle);
+  border-right: 1px solid var(--border-subtle);
   padding: 16px 0;
   position: fixed;
-  top: 56px;
+  top: var(--topbar-height);
   left: 0;
-  bottom: 32px;
+  bottom: var(--statusbar-height);
   overflow-y: auto;
   z-index: 90;
 }
 
 .layout-sidebar-label {
-  font-size: 0.6rem;
-  color: #444;
-  letter-spacing: 0.15em;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  padding: 8px 16px 4px;
-  margin-top: 8px;
+  font-weight: 600;
+  padding: 8px 20px 6px;
+  margin-top: 4px;
 }
 
 .layout-nav {
@@ -107,104 +94,76 @@
 
 .layout-nav-link {
   display: block;
-  padding: 8px 16px;
-  color: #707070;
-  font-size: 0.8rem;
+  padding: 9px 20px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
   font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
   transition: all 0.15s ease;
-  border-left: 2px solid transparent;
+  border-left: 3px solid transparent;
   text-decoration: none;
 }
 
 .layout-nav-link:hover {
-  color: #00ff41;
-  background: rgba(0, 255, 65, 0.03);
-  border-left-color: rgba(0, 255, 65, 0.3);
+  color: var(--navy);
+  background: var(--bg-hover);
+  text-decoration: none;
 }
 
 .layout-nav-link.active {
-  color: #00ff41;
-  background: rgba(0, 255, 65, 0.06);
-  border-left-color: #00ff41;
+  color: var(--navy);
+  background: var(--navy-light);
+  border-left-color: var(--navy);
+  font-weight: 600;
 }
 
-.layout-nav-link-prefix {
-  color: #00ff41;
-  margin-right: 8px;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-
-.layout-nav-link:hover .layout-nav-link-prefix,
-.layout-nav-link.active .layout-nav-link-prefix {
-  opacity: 1;
-}
-
-/* --- Main Content --- */
+/* --- Main content --- */
 .layout-main {
   flex: 1;
-  margin-left: 220px;
-  padding: 24px;
-  min-height: calc(100vh - 56px - 32px);
+  margin-left: var(--sidebar-width);
+  padding: 28px 32px;
+  min-height: calc(100vh - var(--topbar-height) - var(--statusbar-height));
+  background: var(--bg-base);
 }
 
-/* --- Bottom Status Bar --- */
+/* --- Status bar --- */
 .layout-statusbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #0d0d0d;
-  border-top: 1px solid #1a3a1a;
-  padding: 4px 20px;
-  height: 32px;
+  background: var(--bg-subtle);
+  border-top: 1px solid var(--border-subtle);
+  padding: 6px 24px;
+  height: var(--statusbar-height);
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
   z-index: 100;
-  font-size: 0.65rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 0.75rem;
 }
 
-.layout-statusbar-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
+.layout-statusbar-left,
 .layout-statusbar-right {
   display: flex;
   align-items: center;
   gap: 16px;
+  color: var(--text-secondary);
 }
 
 .layout-status-indicator {
   display: flex;
   align-items: center;
   gap: 6px;
+  color: var(--text-secondary);
 }
 
 .layout-status-dot {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: #00ff41;
-  box-shadow: 0 0 4px #00ff41;
-  animation: statusPulse 2s ease-in-out infinite;
-}
-
-.layout-status-text-green {
-  color: #00ff41;
+  background: var(--success);
 }
 
 .layout-status-text-dim {
-  color: #555;
-}
-
-@keyframes statusPulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  color: var(--text-muted);
 }

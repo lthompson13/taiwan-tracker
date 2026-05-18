@@ -7,19 +7,11 @@ import SearchBar from '../components/SearchBar';
 import Loader from '../components/Loader';
 import Pagination from '../components/Pagination';
 
-const CATEGORY_OPTIONS = [
-  { value: '', label: 'ALL CATEGORIES' },
-  { value: 'Legislation', label: 'Legislation' },
-  { value: 'Budget', label: 'Budget' },
-  { value: 'Resolution', label: 'Resolution' },
-  { value: 'Other', label: 'Other' },
-];
-
 // Status options reflect the actual taxonomy used by the LY API (verified
 // via server/scripts/discover-statuses.js). Each value must match a key
 // in BILL_STATUS_MAP in server/lib/filterMaps.js.
 const STATUS_OPTIONS = [
-  { value: '', label: 'ALL STATUSES' },
+  { value: '', label: 'All statuses' },
   { value: 'Scheduled for Plenary', label: 'Scheduled for Plenary' },
   { value: 'Scheduled for Plenary (Discussion)', label: 'Scheduled for Plenary (Discussion)' },
   { value: 'Review Complete', label: 'Review Complete' },
@@ -30,12 +22,19 @@ const STATUS_OPTIONS = [
   { value: 'Reply for Reference', label: 'Reply for Reference' },
 ];
 
+const CATEGORY_OPTIONS = [
+  { value: '', label: 'All categories' },
+  { value: 'Legislation', label: 'Legislation' },
+  { value: 'Budget', label: 'Budget' },
+  { value: 'Resolution', label: 'Resolution' },
+  { value: 'Other', label: 'Other' },
+];
+
 function getStatusBadgeType(status) {
   if (!status) return 'default';
   if (status === 'Third Reading (Passed)') return 'success';
-  if (status === 'Scheduled for Plenary') return 'warning';
-  if (status === 'Review Complete') return 'info';
-  if (status === 'Not Reviewed' || status === 'Returned' || status === 'Withdrawn') return 'danger';
+  if (status === 'Scheduled for Plenary' || status === 'Scheduled for Plenary (Discussion)') return 'warning';
+  if (status === 'Review Complete' || status === 'Review Complete (Overdue)') return 'info';
   return 'default';
 }
 
@@ -63,7 +62,6 @@ function Bills() {
           page: page.toString(),
           limit: LIMIT.toString(),
         });
-        // Server-side filtering: forward filter values as query params.
         if (categoryFilter) params.set('category', categoryFilter);
         if (statusFilter) params.set('status', statusFilter);
 
@@ -75,7 +73,7 @@ function Bills() {
         setTotalPages(data.totalPages || 1);
         setTotal(data.total || 0);
       } catch (err) {
-        setError('FAILED TO RETRIEVE BILL RECORDS: ' + err.message);
+        setError('Failed to load bills: ' + err.message);
       } finally {
         setLoading(false);
       }
@@ -90,8 +88,7 @@ function Bills() {
     setPage(1);
   };
 
-  // Search remains client-side (only filters were moved to the server).
-  // Server-side filters: category, status.
+  // Search remains client-side; server-side filters: category, status.
   const filteredBills = bills.filter((bill) => {
     const matchesSearch = !search ||
       (bill.billName && bill.billName.toLowerCase().includes(search.toLowerCase())) ||
@@ -102,10 +99,10 @@ function Bills() {
   const columns = [
     {
       key: 'billName',
-      label: 'Bill Name',
+      label: 'Bill name',
       render: (val) => (
-        <span style={{ color: '#c0c0c0', fontSize: '0.78rem' }}>
-          {val ? (val.length > 60 ? val.slice(0, 60) + '...' : val) : '—'}
+        <span style={{ color: 'var(--text-primary)' }}>
+          {val ? (val.length > 80 ? val.slice(0, 80) + '…' : val) : '—'}
         </span>
       ),
     },
@@ -123,16 +120,16 @@ function Bills() {
       key: 'proposer',
       label: 'Proposer',
       render: (val) => (
-        <span style={{ color: '#888', fontSize: '0.75rem' }}>
-          {val ? (val.length > 30 ? val.slice(0, 30) + '...' : val) : '—'}
+        <span style={{ color: 'var(--text-secondary)', fontSize: '0.825rem' }}>
+          {val ? (val.length > 40 ? val.slice(0, 40) + '…' : val) : '—'}
         </span>
       ),
     },
     {
       key: 'latestProgressDate',
-      label: 'Date',
+      label: 'Latest date',
       render: (val) => (
-        <span style={{ color: '#ffb000', fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
+        <span style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap', fontSize: '0.825rem' }}>
           {val || '—'}
         </span>
       ),
@@ -140,86 +137,46 @@ function Bills() {
   ];
 
   const handleRowClick = (row) => {
-    if (row.billId) {
-      navigate(`/bills/${encodeURIComponent(row.billId)}`);
-    }
+    if (row.billId) navigate(`/bills/${encodeURIComponent(row.billId)}`);
   };
 
   return (
     <div>
-      <div style={{
-        marginBottom: '20px',
-        borderBottom: '1px solid #1a3a1a',
-        paddingBottom: '12px',
-      }}>
-        <h1 style={{
-          color: '#00ff41',
-          fontSize: '1.1rem',
-          fontWeight: 600,
-          fontFamily: 'monospace',
-          letterSpacing: '0.15em',
-          margin: 0,
-          textTransform: 'uppercase',
-        }}>
-          /// BILL TRACKER
-        </h1>
-        <p style={{
-          color: '#555',
-          fontSize: '0.7rem',
-          fontFamily: 'monospace',
-          margin: '4px 0 0 0',
-          letterSpacing: '0.08em',
-        }}>
-          {total} BILLS CATALOGUED
+      <div style={{ marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid var(--border-subtle)' }}>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Bills</h1>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>
+          {total.toLocaleString()} bills tracked
         </p>
       </div>
 
       <SearchBar
         value={search}
         onChange={(val) => { setSearch(val); }}
-        placeholder="SEARCH BILL NAME OR PROPOSER..."
+        placeholder="Search bill name or proposer…"
         onSearch={() => {}}
         filters={[
-          {
-            key: 'category',
-            label: 'CATEGORY',
-            value: categoryFilter,
-            options: CATEGORY_OPTIONS,
-          },
-          {
-            key: 'status',
-            label: 'STATUS',
-            value: statusFilter,
-            options: STATUS_OPTIONS,
-          },
+          { key: 'category', label: 'Category', value: categoryFilter, options: CATEGORY_OPTIONS },
+          { key: 'status',   label: 'Status',   value: statusFilter,   options: STATUS_OPTIONS   },
         ]}
         onFilterChange={handleFilterChange}
       />
 
       {error && (
-        <div style={{ padding: '16px', color: '#ff0040', fontFamily: 'monospace', fontSize: '0.8rem', marginBottom: '16px' }}>
-          <span>[ERROR]</span> {error}
+        <div style={{ padding: '12px 14px', background: 'var(--danger-bg)', color: 'var(--danger)', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', marginBottom: '16px' }}>
+          {error}
         </div>
       )}
 
       {loading ? (
-        <Loader text="SCANNING BILL DATABASE" />
+        <Loader text="Loading bills" />
       ) : (
-        <Panel title="LEGISLATIVE BILLS">
-          <DataTable
-            columns={columns}
-            data={filteredBills}
-            onRowClick={handleRowClick}
-          />
+        <Panel title="Bills">
+          <DataTable columns={columns} data={filteredBills} onRowClick={handleRowClick} />
         </Panel>
       )}
 
       {!loading && totalPages > 1 && (
-        <Pagination
-          page={page}
-          totalPages={totalPages}
-          onPageChange={setPage}
-        />
+        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
       )}
     </div>
   );
