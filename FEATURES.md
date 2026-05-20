@@ -2,7 +2,7 @@
 
 ## How to Use This Document
 
-This is a prioritized backlog. Work from top to bottom. Each feature is described in enough detail to hand to Claude Code as a prompt. When you complete a feature, mark it done with a date. When you think of something new, add it to the appropriate priority tier. Update the Architecture document as each feature changes the project structure.
+This is a prioritized backlog. Work from top to bottom. Each feature is described in enough detail to hand to Claude Code as a prompt. When you complete a feature, move it to the COMPLETED section at the bottom with a date and a note on what was done. When you think of something new, add it to the appropriate priority tier. Update the Architecture document as each feature changes the project structure.
 
 ---
 
@@ -10,19 +10,11 @@ This is a prioritized backlog. Work from top to bottom. Each feature is describe
 
 These are bugs and gaps in the current build that undermine usability. Fix these before adding new features.
 
-### 1.2 Add translation failure warning
-**Status:** Completed May 2026
-**What was done:** Added health tracking to `server/lib/translate.js` — exports `isEnabled()` and `getStatus()` that report whether the API key is configured and whether recent API calls have succeeded (3 consecutive failures flips status to unhealthy). New `/api/translation-status` endpoint exposes this to the frontend. All four list routes (bills, legislators, committees, interpellations) now include `translated: <bool>` in their response. New `client/src/components/TranslationBanner.jsx` polls the status endpoint on mount and every 60s, rendering a red "TRANSLATION OFFLINE" banner when the API key is missing or a yellow "TRANSLATION DEGRADED" banner when the API is failing. Banner is rendered in `Layout.jsx` so it appears site-wide.
-
-### 1.4 Fix interpellation detail navigation
-**Status:** Completed May 2026
-**What was done:** Activity feed items of type "Interpellation" now navigate to `/interpellations#<id>` (URL-encoded interpellationId). The Interpellations page reads `location.hash` on mount; once the data has loaded, it finds the matching row, sets `expandedId` so the inline detail panel renders, and smooth-scrolls the panel into view via a ref. Chose the deep-link approach over a dedicated InterpellationDetail page because interpellations are short (subject + description + meeting metadata) and the existing inline expansion already shows everything useful — no new server route or page needed.
-
 ### 1.5 Persistent translation cache
 **Status:** Not started
 **Priority elevated:** Translation cache currently resets on every server restart, causing all previously translated content to be re-translated via the Google Cloud API. This directly increases operating costs (Google Translate budget capped at $40/month) and slows page loads. Every Railway redeploy (which happens on every git push) clears the cache.
 **What:** Move the translation cache from in-memory (volatile) to persistent storage.
-**Implementation approach:** Options include (a) writing cache to a JSON file on disk that loads on server start — simplest but limited by Railway's ephemeral filesystem, (b) adding a Redis instance on Railway — fast and purpose-built for caching, or (c) using the PostgreSQL database once it's added (Priority 2.4) with a translations table. Recommended: implement option (a) as a quick fix, then migrate to (b) or (c) when the database is added. Alternatively, skip straight to (c) if the database is being added soon.
+**Implementation approach:** Options include (a) writing cache to a JSON file on disk that loads on server start — simplest but limited by Railway's ephemeral filesystem, (b) adding a Redis instance on Railway — fast and purpose-built for caching, or (c) using the PostgreSQL database once it's added (Priority 2.5) with a translations table. Recommended: implement option (a) as a quick fix, then migrate to (b) or (c) when the database is added. Alternatively, skip straight to (c) if the database is being added soon.
 
 ---
 
@@ -34,7 +26,7 @@ These features transform the project from a data browser into a product someone 
 **Status:** Not started
 **What:** Add dropdown selectors for legislative term (屆) and session period (會期) to the Bills page. The current term is the 11th (第11屆). Each term has multiple sessions numbered 1-8.
 **Why:** The default API query returns a narrow slice of bills (mostly "scheduled for plenary" status). Adding term and session selectors lets users access a much broader range of bill statuses and historical legislation. This is essential for the product to be useful as a research tool.
-**Implementation approach:** Add term and session dropdowns to the Bills page UI. When a user selects a term and session, include those as query parameters in the API call. Default to the current term but don't default to a specific session so users see all bills in the current term.
+**Implementation approach:** Add term and session dropdowns to the Bills page UI. When a user selects a term and session, include those as query parameters in the API call. The backend already accepts `term` and `session` query params (see server/routes/bills.js — they map to 屆 and 會期). Default to the current term but don't default to a specific session so users see all bills in the current term.
 
 ### 2.2 Sector tagging system
 **Status:** Not started
@@ -120,22 +112,30 @@ Nice-to-have improvements that increase value but aren't critical for launch.
 **What:** A private admin interface for managing editorial content — writing/editing bill summaries, curating the weekly digest, managing subscriber lists, viewing usage analytics.
 **Why:** Makes the editorial workflow sustainable as the product scales.
 
-### 4.7 UI redesign — light theme
-**What:** Replace the dark military/command-center aesthetic with a clean, professional light theme per the Vision document's design philosophy (white background, navy/teal accents, sans-serif typography).
-**Why:** Better aligns with the target audience of business professionals. Current aesthetic may signal "hobby project" rather than "professional intelligence tool."
-
 ---
 
 ## COMPLETED
 
 ### 1.1 Fix client-side filtering to work across full dataset
 **Completed:** May 2026
-**What was done:** Moved filtering from client-side to server-side. Created server/lib/filterMaps.js to map English filter values to Chinese equivalents (e.g., KMT → 中國國民黨). Updated backend routes to accept and forward query parameters to the LY API. Updated frontend pages to send filters as URL parameters and refetch on filter change.
+**What was done:** Moved filtering from client-side to server-side. Created server/lib/filterMaps.js to map English filter values to Chinese equivalents (e.g., KMT → 中國國民黨). Updated backend routes to accept and forward query parameters to the LY API. Updated frontend pages to send filters as URL parameters and refetch on filter change. Bill status options were verified against the live LY API taxonomy via server/scripts/discover-statuses.js.
+
+### 1.2 Add translation failure warning
+**Completed:** May 2026
+**What was done:** Added health tracking to server/lib/translate.js — exports isEnabled() and getStatus() that report whether the API key is configured and whether recent API calls have succeeded (3 consecutive failures flips status to unhealthy). New /api/translation-status endpoint exposes this to the frontend. All four list routes (bills, legislators, committees, interpellations) now include `translated: <bool>` in their response. New client/src/components/TranslationBanner.jsx polls the status endpoint on mount and every 60s, rendering a "Translation offline" banner when the API key is missing or a "Translation degraded" banner when the API is failing. Banner is rendered in Layout.jsx so it appears site-wide.
 
 ### 1.3 Create .env.example file
 **Completed:** May 2026
 **What was done:** Added .env.example to project root listing required and optional environment variables. Verified .env is in .gitignore.
 
+### 1.4 Fix interpellation detail navigation
+**Completed:** May 2026
+**What was done:** Activity feed items of type "Interpellation" now navigate to /interpellations#<id> (URL-encoded interpellationId). The Interpellations page reads location.hash on mount; once the data has loaded, it finds the matching row, sets expandedId so the inline detail panel renders, and smooth-scrolls the panel into view via a ref. Chose the deep-link approach over a dedicated InterpellationDetail page because interpellations are short (subject + description + meeting metadata) and the existing inline expansion already shows everything useful — no new server route or page needed.
+
+### 4.7 UI redesign — light theme
+**Completed:** May 2026
+**What was done:** Replaced the dark military/command-center aesthetic with the clean, professional light theme described in the Vision document. Established a design-token system in client/src/index.css (CSS custom properties for the white/navy #1B2A4A/teal #2A7F8E palette, grays, semantic colors, typography, spacing, radius, shadow) and loaded the Inter font. Rewrote every component CSS file (Layout, Panel, DataTable, SearchBar, Pagination) and every page's inline styles to consume those tokens. Removed all military-themed copy ("TOP SECRET // SI // NOFORN", "// CLASSIFIED", "/// PAGE TITLE" headings, ">_" search prompts, "PERSONNEL FILES" labels) in favor of plain professional language. Replaced the monospace body font, all-caps headings, and green-on-black surfaces.
+
 ### Infrastructure: Migrated from AWS Elastic Beanstalk to Railway
 **Completed:** May 2026
-**What was done:** Migrated hosting from AWS Elastic Beanstalk (suspended, deprecated platform) to Railway Hobby plan. Removed deploy.js and Procfile. Railway auto-deploys from GitHub on push. Environment variables configured in Railway dashboard. Terminated AWS EB environment.
+**What was done:** Migrated hosting from AWS Elastic Beanstalk (suspended, deprecated platform) to Railway Hobby plan. Archived deploy.js, Procfile, and .ebextensions/ to archive/aws/. Renamed the root build:full script to build so Railway's Nixpacks builder runs it automatically. Railway auto-deploys from GitHub on push. Environment variables configured in Railway dashboard. Terminated AWS EB environment.
