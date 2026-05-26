@@ -1,6 +1,7 @@
 const { Translate } = require('@google-cloud/translate').v2;
+const { Redis } = require('@upstash/redis');
 
-// Static mapping for known enumerated values
+// Static mapping for known enumerated values — never hits the API
 const staticMap = new Map([
   // Parties
   ['民主進步黨', 'Democratic Progressive Party'],
@@ -42,17 +43,38 @@ const staticMap = new Map([
   ['否', 'No'],
 ]);
 
-// In-memory translation cache
-const cache = new Map();
-const MAX_CACHE_SIZE = 5000;
+// L1: in-memory cache (fast, volatile — resets on restart)
+const memCache = new Map();
+const MAX_MEM_CACHE_SIZE = 5000;
 
-let translate = null;
+// L2: Redis persistent cache (survives redeploys)
+// Populated lazily; null if env vars are absent.
+let redisClient = null;
+const REDIS_KEY_PREFIX = 'trans:v1:';
+const REDIS_TTL_SECONDS = 7776000; // 90 days
 
-// Translation health tracking.
-// "healthy" means: API key is configured AND recent API calls have succeeded.
-// "enabled" means: API key is configured (regardless of whether calls succeed).
-// We track consecutive errors so a single transient failure doesn't flip the
-// status; ERROR_THRESHOLD consecutive failures marks the API as unhealthy.
+function getRedisClient() {
+  if (redisClient) return redisClient;
+  if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+    redisClient = new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    });
+  }
+  return redisClient;
+}
+
+function setMemCache(key, value) {
+  if (memCache.size >= MAX_MEM_CACHE_SIZE) {
+    memCache.delete(memCache.keys().next().value);
+  }
+  memCache.set(key, value);
+}
+
+// Google Translate client
+let translateClient = null;
+
+// Translation health tracking
 const ERROR_THRESHOLD = 3;
 let apiErrorCount = 0;
 let lastError = null;
@@ -72,6 +94,7 @@ function getStatus() {
     errorCount: apiErrorCount,
     lastError,
     lastSuccessAt,
+    redisEnabled: Boolean(getRedisClient()),
   };
 }
 
@@ -86,120 +109,151 @@ function recordError(err) {
   lastError = err && err.message ? err.message : String(err);
 }
 
-function getClient() {
-  if (!translate && isEnabled()) {
-    translate = new Translate({ key: process.env.GOOGLE_TRANSLATE_API_KEY });
+function getTranslateClient() {
+  if (!translateClient && isEnabled()) {
+    translateClient = new Translate({ key: process.env.GOOGLE_TRANSLATE_API_KEY });
   }
-  return translate;
+  return translateClient;
 }
 
 /**
- * Translate a single text string from Chinese to English.
- * Checks static map first, then cache, then calls Google Translate API.
+ * Translate a single string from Chinese to English.
+ * Resolution order: static map → L1 memory → L2 Redis → Google API
  */
 async function translateText(text) {
   if (!text || typeof text !== 'string') return text;
-
   const trimmed = text.trim();
   if (!trimmed) return text;
 
-  // Check static map
   if (staticMap.has(trimmed)) return staticMap.get(trimmed);
-
-  // Check cache
-  if (cache.has(trimmed)) return cache.get(trimmed);
-
-  // Check if text contains only ASCII (already English)
+  if (memCache.has(trimmed)) return memCache.get(trimmed);
   if (/^[\x00-\x7F]*$/.test(trimmed)) return text;
 
-  const client = getClient();
-  if (!client) return text; // No API key configured, return as-is
+  const redis = getRedisClient();
+  if (redis) {
+    try {
+      const cached = await redis.get(REDIS_KEY_PREFIX + trimmed);
+      if (cached) {
+        setMemCache(trimmed, cached);
+        return cached;
+      }
+    } catch (err) {
+      console.error('[translate] Redis get error:', err.message);
+    }
+  }
+
+  const client = getTranslateClient();
+  if (!client) return text;
 
   try {
     const [translation] = await client.translate(trimmed, { from: 'zh-TW', to: 'en' });
     recordSuccess();
-    // Evict oldest entries if cache is too large
-    if (cache.size >= MAX_CACHE_SIZE) {
-      const firstKey = cache.keys().next().value;
-      cache.delete(firstKey);
+    setMemCache(trimmed, translation);
+    if (redis) {
+      redis.set(REDIS_KEY_PREFIX + trimmed, translation, { ex: REDIS_TTL_SECONDS })
+        .catch(err => console.error('[translate] Redis set error:', err.message));
     }
-    cache.set(trimmed, translation);
     return translation;
   } catch (err) {
     recordError(err);
     console.error('[translate] API error:', err.message);
-    return text; // Return original on failure
+    return text;
   }
 }
 
 /**
- * Translate multiple strings in a single batch API call.
- * Returns an array of translated strings in the same order.
+ * Translate multiple strings in batch.
+ * Resolution order: static map / L1 → L2 Redis (mget) → Google API (batch)
  */
 async function translateBatch(texts) {
   if (!Array.isArray(texts) || texts.length === 0) return texts;
 
-  // Separate texts into those we can resolve locally and those needing API
   const results = new Array(texts.length);
-  const apiTexts = []; // { index, text } for texts needing API call
-  const apiIndices = [];
+  const needsRedis = []; // { index, trimmed }
 
+  // Pass 1: resolve from static map and L1 memory cache
   for (let i = 0; i < texts.length; i++) {
     const text = texts[i];
     if (!text || typeof text !== 'string' || !text.trim()) {
       results[i] = text;
       continue;
     }
-
     const trimmed = text.trim();
-
     if (staticMap.has(trimmed)) {
       results[i] = staticMap.get(trimmed);
-    } else if (cache.has(trimmed)) {
-      results[i] = cache.get(trimmed);
+    } else if (memCache.has(trimmed)) {
+      results[i] = memCache.get(trimmed);
     } else if (/^[\x00-\x7F]*$/.test(trimmed)) {
       results[i] = text;
     } else {
-      apiTexts.push(trimmed);
-      apiIndices.push(i);
+      needsRedis.push({ index: i, trimmed });
     }
   }
 
-  // If nothing needs API translation, return immediately
-  if (apiTexts.length === 0) return results;
+  if (needsRedis.length === 0) return results;
 
-  const client = getClient();
-  if (!client) {
-    // No API key, fill remaining with originals
-    for (const idx of apiIndices) {
-      results[idx] = texts[idx];
+  // Pass 2: check Redis for remaining items
+  const redis = getRedisClient();
+  const needsApi = [];
+
+  if (redis) {
+    try {
+      const keys = needsRedis.map(({ trimmed }) => REDIS_KEY_PREFIX + trimmed);
+      const redisResults = await redis.mget(...keys);
+      for (let j = 0; j < needsRedis.length; j++) {
+        const { index, trimmed } = needsRedis[j];
+        const cached = redisResults[j];
+        if (cached) {
+          results[index] = cached;
+          setMemCache(trimmed, cached);
+        } else {
+          needsApi.push(needsRedis[j]);
+        }
+      }
+    } catch (err) {
+      console.error('[translateBatch] Redis mget error:', err.message);
+      needsApi.push(...needsRedis);
     }
+  } else {
+    needsApi.push(...needsRedis);
+  }
+
+  if (needsApi.length === 0) return results;
+
+  // Pass 3: Google Translate API for remaining items
+  const client = getTranslateClient();
+  if (!client) {
+    for (const { index } of needsApi) results[index] = texts[index];
     return results;
   }
 
   try {
+    const apiTexts = needsApi.map(({ trimmed }) => trimmed);
     const [translations] = await client.translate(apiTexts, { from: 'zh-TW', to: 'en' });
     recordSuccess();
     const translatedArray = Array.isArray(translations) ? translations : [translations];
 
-    for (let j = 0; j < apiIndices.length; j++) {
-      const translated = translatedArray[j] || texts[apiIndices[j]];
-      results[apiIndices[j]] = translated;
+    const redisPairs = [];
+    for (let j = 0; j < needsApi.length; j++) {
+      const { index, trimmed } = needsApi[j];
+      const translated = translatedArray[j] || texts[index];
+      results[index] = translated;
+      setMemCache(trimmed, translated);
+      redisPairs.push([REDIS_KEY_PREFIX + trimmed, translated]);
+    }
 
-      // Cache the result
-      if (cache.size >= MAX_CACHE_SIZE) {
-        const firstKey = cache.keys().next().value;
-        cache.delete(firstKey);
-      }
-      cache.set(apiTexts[j], translated);
+    // Fire-and-forget Redis writes so they don't block the response
+    if (redis && redisPairs.length > 0) {
+      Promise.all(
+        redisPairs.map(([key, value]) =>
+          redis.set(key, value, { ex: REDIS_TTL_SECONDS })
+        )
+      ).catch(err => console.error('[translateBatch] Redis set error:', err.message));
     }
   } catch (err) {
     recordError(err);
     console.error('[translateBatch] API error:', err.message);
-    // Fill remaining with originals on failure
-    for (const idx of apiIndices) {
-      results[idx] = texts[idx];
-    }
+    for (const { index } of needsApi) results[index] = texts[index];
   }
 
   return results;

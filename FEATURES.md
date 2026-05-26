@@ -10,11 +10,7 @@ This is a prioritized backlog. Work from top to bottom. Each feature is describe
 
 These are bugs and gaps in the current build that undermine usability. Fix these before adding new features.
 
-### 1.5 Persistent translation cache
-**Status:** Not started
-**Priority elevated:** Translation cache currently resets on every server restart, causing all previously translated content to be re-translated via the Google Cloud API. This directly increases operating costs (Google Translate budget capped at $40/month) and slows page loads. Every Railway redeploy (which happens on every git push) clears the cache.
-**What:** Move the translation cache from in-memory (volatile) to persistent storage.
-**Implementation approach:** Options include (a) writing cache to a JSON file on disk that loads on server start — simplest but limited by Railway's ephemeral filesystem, (b) adding a Redis instance on Railway — fast and purpose-built for caching, or (c) using the PostgreSQL database once it's added (Priority 2.5) with a translations table. Recommended: implement option (a) as a quick fix, then migrate to (b) or (c) when the database is added. Alternatively, skip straight to (c) if the database is being added soon.
+*(All Priority 1 items completed — see COMPLETED section below.)*
 
 ---
 
@@ -23,16 +19,10 @@ These are bugs and gaps in the current build that undermine usability. Fix these
 These features transform the project from a data browser into a product someone would pay for. They should be built in the order listed.
 
 ### 2.1 Add term and session selectors to Bills page
-**Status:** Not started
-**What:** Add dropdown selectors for legislative term (屆) and session period (會期) to the Bills page. The current term is the 11th (第11屆). Each term has multiple sessions numbered 1-8.
-**Why:** The default API query returns a narrow slice of bills (mostly "scheduled for plenary" status). Adding term and session selectors lets users access a much broader range of bill statuses and historical legislation. This is essential for the product to be useful as a research tool.
-**Implementation approach:** Add term and session dropdowns to the Bills page UI. When a user selects a term and session, include those as query parameters in the API call. The backend already accepts `term` and `session` query params (see server/routes/bills.js — they map to 屆 and 會期). Default to the current term but don't default to a specific session so users see all bills in the current term.
+**Status:** Complete
 
 ### 2.2 Sector tagging system
-**Status:** Not started
-**What:** Each bill gets tagged by business sector — semiconductors, defense, energy, financial regulation, healthcare, trade, cross-strait relations, foreign investment, data privacy/technology, labor, environment, agriculture, transportation.
-**Why:** This is the feature that makes the platform useful for specific audiences. An analyst who only cares about semiconductor policy can filter to see only what's relevant to them.
-**Implementation approach:** Create a tagging function that analyzes bill titles, categories, and proposer committee assignments to assign sector tags. Start with keyword-based rules (e.g., bills from the Economics Committee mentioning 半導體, 晶片, or 積體電路 get tagged "semiconductors"). This can be enhanced with AI classification later. Store tags alongside bill data. Add sector filter to the Bills page and Dashboard.
+**Status:** Complete
 
 ### 2.3 "Why It Matters" editorial summaries
 **Status:** Not started
@@ -49,7 +39,7 @@ These features transform the project from a data browser into a product someone 
 ### 2.5 Add a database
 **Status:** Not started
 **What:** Add persistent storage to the application.
-**Why:** Required for: sector tags, editorial summaries, user accounts, watchlists, alert preferences, subscriber lists, persistent translation cache (long-term solution), and historical archive. The current read-through architecture cannot support any paid product features.
+**Why:** Required for: sector tags, editorial summaries, user accounts, watchlists, alert preferences, subscriber lists, and historical archive. The current read-through architecture cannot support any paid product features. (Translation cache is solved via Upstash Redis — see 1.5.)
 **Implementation approach:** PostgreSQL is the recommended choice — Railway lets you spin up a PostgreSQL instance with one click in the same project. Use an ORM like Prisma for type-safe database access. Initial schema should include tables for: cached bills (with sector tags and editorial summaries), digest subscribers, translation cache, and eventually user accounts.
 
 ### 2.6 Searchable legislative archive
@@ -115,6 +105,18 @@ Nice-to-have improvements that increase value but aren't critical for launch.
 ---
 
 ## COMPLETED
+
+### 2.2 Sector tagging system
+**Completed:** May 2026
+**What was done:** Created server/lib/sectorTags.js with keyword + committee-based rules for 13 sectors: Semiconductors, Defense, Energy, Financial Regulation, Healthcare, Trade, Cross-Strait, Foreign Investment, Data & Technology, Labor, Environment, Agriculture, Transportation. Tags are computed server-side from raw Chinese bill fields (before translation) in server/routes/bills.js, included in both list and detail API responses as a `sectors` array. Added `sector` badge type to StatusBadge.jsx using --teal/--teal-light tokens. Sector badges displayed inline under bill name in Bills list, in the header on BillDetail, and alongside category/status on Dashboard recent bills. Sector filter dropdown added to Bills page (client-side, filters current page; server-side filtering requires the database, see 2.5).
+
+### 2.1 Add term and session selectors to Bills page
+**Completed:** May 2026
+**What was done:** Added Term and Session dropdowns to the Bills page SearchBar. Term defaults to 11 (current term); session defaults to empty (all sessions). Changing term resets session. Both are included as query params in the API call — the backend already accepted them. Options cover terms 8–11 (2012–present) and sessions 1–8. No backend changes needed.
+
+### 1.5 Persistent translation cache
+**Completed:** May 2026
+**What was done:** Added Upstash Redis as an optional L2 persistent cache layer in server/lib/translate.js. Resolution order is now: static map → L1 in-memory (5,000 entries, FIFO) → L2 Redis (90-day TTL) → Google Translate API. Redis writes are fire-and-forget so they don't block responses; Redis failures fall through to the API silently, preserving full graceful degradation. Added `redisEnabled` field to getStatus() / /api/translation-status. Updated .env.example with UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN. Using Upstash free tier (10k req/day) — zero additional cost. Installed @upstash/redis in server/.
 
 ### 1.1 Fix client-side filtering to work across full dataset
 **Completed:** May 2026

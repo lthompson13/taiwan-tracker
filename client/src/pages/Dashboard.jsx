@@ -145,9 +145,12 @@ function Dashboard() {
                   <div style={recentTitleStyle} onClick={() => navigate(`/bills/${encodeURIComponent(bill.billId)}`)}>
                     {bill.billName ? (bill.billName.length > 100 ? bill.billName.slice(0, 100) + '…' : bill.billName) : 'Untitled bill'}
                   </div>
-                  <div style={{ marginTop: '6px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div style={{ marginTop: '6px', display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
                     {bill.category && <StatusBadge label={bill.category} type="info" />}
                     {bill.status && <StatusBadge label={bill.status} type={bill.status === 'Third Reading (Passed)' ? 'success' : 'default'} />}
+                    {Array.isArray(bill.sectors) && bill.sectors.map((s) => (
+                      <StatusBadge key={s} label={s} type="sector" />
+                    ))}
                     {bill.proposer && (
                       <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
                         {bill.proposer.length > 40 ? bill.proposer.slice(0, 40) + '…' : bill.proposer}

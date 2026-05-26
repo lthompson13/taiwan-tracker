@@ -109,6 +109,9 @@ function BillDetail() {
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {bill.status && <StatusBadge label={bill.status} type={getStatusBadgeType(bill.status)} />}
           {bill.category && <StatusBadge label={bill.category} type="info" />}
+          {Array.isArray(bill.sectors) && bill.sectors.map((s) => (
+            <StatusBadge key={s} label={s} type="sector" />
+          ))}
         </div>
       </div>
 

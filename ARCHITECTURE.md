@@ -12,6 +12,7 @@ A monorepo Node.js application with an Express backend and React frontend. The b
 | Backend | Node.js, Express.js |
 | HTTP Client | node-fetch v2.7.0 |
 | Translation | Google Cloud Translation API (@google-cloud/translate v9.3.0) |
+| Cache (persistent) | Upstash Redis (@upstash/redis) — optional, degrades to in-memory if not configured |
 | Deployment | Railway (Hobby plan, auto-deploys from GitHub) |
 | Dev Tooling | concurrently (parallel dev servers) |
 
@@ -53,10 +54,12 @@ taiwan_project/
 │   │   └── interpellations.js # /api/interpellations
 │   ├── lib/
 │   │   ├── lyApi.js          # LY API wrapper — all upstream HTTP calls go through here
-│   │   ├── translate.js      # Google Translate wrapper; in-memory cache (5000, FIFO)
-│   │   │                     #   + health tracking (isEnabled / getStatus)
+│   │   ├── translate.js      # Google Translate wrapper; two-level cache: L1 in-memory
+│   │   │                     #   (5000, FIFO) + L2 Upstash Redis (90-day TTL, optional)
+│   │   │                     #   + health tracking (isEnabled / getStatus / redisEnabled)
 │   │   ├── translateFields.js # Field-level translation helper
 │   │   └── filterMaps.js     # English-to-Chinese filter value mapping (party, status, category)
+│   │   └── sectorTags.js      # Keyword + committee rules mapping Chinese bill fields to 13 sector labels
 │   └── scripts/
 │       └── discover-statuses.js # One-off: samples the LY API to list real 議案狀態 values
 │
@@ -69,7 +72,7 @@ taiwan_project/
         │   ├── Dashboard.jsx          # Stats overview + recent bills
         │   ├── Legislators.jsx        # Paginated list with server-side party filtering
         │   ├── LegislatorDetail.jsx   # Full profile page
-        │   ├── Bills.jsx              # Paginated list with server-side category/status filtering
+        │   ├── Bills.jsx              # Paginated list with server-side term/session/category/status filtering
         │   ├── BillDetail.jsx         # Full bill page with attachments
         │   ├── Committees.jsx         # Committee list with expandable detail
         │   ├── Interpellations.jsx    # Inquiry log, paginated, expandable, hash-deep-linkable
@@ -115,7 +118,7 @@ Express backend (server/)
 Legislative Yuan API (v2.ly.govapi.tw)
     ↓ (JSON response in Chinese)
 Express backend
-    ↓ (translate via Google Cloud Translation, cache results in-memory)
+    ↓ (translate via Google Cloud Translation, cache results in L1 memory + L2 Redis)
 React frontend
     ↓ (render translated data)
 User browser
@@ -124,12 +127,14 @@ User browser
 ## Translation Layer
 
 - All translation happens server-side in server/lib/translate.js
-- In-memory cache stores up to 5,000 translated strings (FIFO eviction)
-- Cache resets on server restart (no persistent cache — this is a priority fix, see FEATURES 1.5)
-- Health tracking: translate.js records consecutive API errors. getStatus() reports `enabled` (API key configured) and `healthy` (key configured AND fewer than 3 consecutive failures)
-- If GOOGLE_TRANSLATE_API_KEY is missing or invalid, translation is skipped and content passes through in Chinese — but this no longer happens silently: the /api/translation-status endpoint and the TranslationBanner component surface a site-wide warning
-- Google Cloud Translation budget is capped at $40/month
-- Translation is the primary ongoing operational cost; a persistent cache will significantly reduce this
+- Two-level cache:
+  - L1: in-memory Map (up to 5,000 strings, FIFO eviction) — fast, resets on server restart
+  - L2: Upstash Redis (90-day TTL per entry) — persistent across Railway redeploys; optional but strongly recommended to control Google Translate API costs
+- Resolution order for every string: static map → L1 memory → L2 Redis → Google Translate API
+- Redis writes are fire-and-forget (non-blocking); Redis failures fall through to the API silently
+- Health tracking: translate.js records consecutive API errors. getStatus() reports `enabled` (Google API key configured), `healthy` (key configured AND fewer than 3 consecutive failures), and `redisEnabled` (Upstash credentials configured)
+- If GOOGLE_TRANSLATE_API_KEY is missing or invalid, translation is skipped and content passes through in Chinese — the /api/translation-status endpoint and TranslationBanner component surface a site-wide warning
+- Google Cloud Translation budget is capped at $40/month; the persistent Redis cache significantly reduces redundant API calls after each Railway redeploy
 
 ## Frontend Styling
 
@@ -151,6 +156,8 @@ User browser
 | Variable | Required | Where Set | Purpose |
 |----------|----------|-----------|---------|
 | GOOGLE_TRANSLATE_API_KEY | Yes (for translation) | Railway dashboard | Google Cloud Translation API key |
+| UPSTASH_REDIS_REST_URL | No (but strongly recommended) | Railway dashboard | Upstash Redis REST endpoint — enables persistent translation cache |
+| UPSTASH_REDIS_REST_TOKEN | No (but strongly recommended) | Railway dashboard | Upstash Redis REST token |
 | PORT | No (auto-assigned) | Railway (automatic) | Server port |
 
 See .env.example in the project root for the canonical list.
@@ -159,5 +166,5 @@ See .env.example in the project root for the canonical list.
 
 1. **No database** — no persistent storage, no user data, no historical tracking
 2. **No authentication** — completely public, no user accounts
-3. **In-memory translation cache is volatile** — resets on every server restart, causing redundant API calls and costs (Priority 1.5)
-4. **No term/session selectors on Bills page** — the backend accepts term/session query params, but the UI does not yet expose them, so the default query returns a narrow slice of legislative data (Priority 2.1)
+3. ~~**In-memory translation cache is volatile**~~ — resolved in 1.5: two-level cache with Upstash Redis L2 persists across redeploys
+4. ~~**No term/session selectors on Bills page**~~ — resolved in 2.1: Term and Session dropdowns added to the Bills page, defaulting to Term 11 / all sessions

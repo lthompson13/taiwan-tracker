@@ -74,7 +74,7 @@ The overall feel should signal credibility and professionalism to business users
 ## Operating Cost Estimates (Priority 1 + 2 features)
 
 Railway hosting (Hobby plan): $5-15/month
-Google Cloud Translation API: $10-40/month (budget cap set at $40/month; will decrease significantly once persistent translation cache is implemented)
+Google Cloud Translation API: $5-20/month (budget cap set at $40/month; persistent Redis cache implemented in 1.5 significantly reduces redundant API calls across redeploys)
 PostgreSQL database (Railway add-on or free-tier Supabase/Neon): $0-15/month
 Email service (SendGrid/Resend free tier): $0/month initially
 Domain/DNS: ~$1/month

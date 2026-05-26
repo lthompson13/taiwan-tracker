@@ -3,6 +3,7 @@ const router = express.Router();
 const { fetchFromLY } = require('../lib/lyApi');
 const { translateBill } = require('../lib/translateFields');
 const { getStatus: getTranslationStatus } = require('../lib/translate');
+const { tagBill } = require('../lib/sectorTags');
 const {
   BILL_CATEGORY_MAP,
   BILL_STATUS_MAP,
@@ -85,6 +86,9 @@ router.get('/', async (req, res) => {
 
   const bills = Array.isArray(data.bills) ? data.bills.map(mapBill) : [];
 
+  // Tag before translation — rules match against raw Chinese text
+  bills.forEach((bill) => { bill.sectors = tagBill(bill); });
+
   const translated = await Promise.all(bills.map(translateBill));
 
   res.json({
@@ -116,7 +120,9 @@ router.get('/:id', async (req, res) => {
     return res.status(404).json({ error: true, message: 'Bill not found' });
   }
 
-  res.json(await translateBill(bills[0]));
+  const bill = bills[0];
+  bill.sectors = tagBill(bill);
+  res.json(await translateBill(bill));
 });
 
 module.exports = router;

@@ -9,6 +9,7 @@ const TYPE_STYLES = {
   warning: { color: 'var(--warning)', bg: 'var(--warning-bg)', border: 'var(--warning)' },
   danger:  { color: 'var(--danger)',  bg: 'var(--danger-bg)',  border: 'var(--danger)'  },
   info:    { color: 'var(--info)',    bg: 'var(--info-bg)',    border: 'var(--info)'    },
+  sector:  { color: 'var(--teal)',    bg: 'var(--teal-light)', border: 'var(--teal)'   },
   default: { color: 'var(--text-secondary)', bg: 'var(--bg-subtle)', border: 'var(--border-default)' },
 };
 
