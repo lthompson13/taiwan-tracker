@@ -25,10 +25,7 @@ These features transform the project from a data browser into a product someone 
 **Status:** Complete
 
 ### 2.3 "Why It Matters" editorial summaries
-**Status:** Not started
-**What:** For bills tagged with business-relevant sectors, add a brief (2-3 sentence) plain-English summary explaining the business implications. Example: "This bill would impose new export licensing requirements on advanced semiconductor packaging equipment. If passed, it could affect foreign chip manufacturers sourcing packaging services from Taiwan and may require compliance reviews for existing supply contracts."
-**Why:** This is the core value proposition — translating legislative activity into business relevance. Raw translation tells you what a bill says; the editorial summary tells you why you should care.
-**Implementation approach:** Initially, these summaries will be written manually by the founder (this is the human editorial moat). Build the UI to display them. Later, explore using an LLM API to generate draft summaries that are then reviewed and edited. Requires a database to store the summaries (see 2.5).
+**Status:** Complete
 
 ### 2.4 Weekly digest email
 **Status:** Not started
@@ -108,6 +105,10 @@ Nice-to-have improvements that increase value but aren't critical for launch.
 
 ### 2.2 Sector tagging system
 **Completed:** May 2026
+
+### 2.3 "Why It Matters" editorial summaries
+**Completed:** May 2026
+**What was done:** Summaries stored in server/data/summaries.json (committed to git), keyed by billId. server/lib/summaries.js loads the file at startup and exposes getSummary(billId); both bill list and detail routes attach the result. UI: prominent navy-accented "Why It Matters" panel on BillDetail (above metadata table), small "Analysis" badge on Bills list rows, and a left-bordered excerpt on Dashboard recent bills. All UI is conditional — renders only when a summary exists. To publish a summary: add an entry to summaries.json, commit, push. Migrates cleanly to a database table when 2.5 is built.
 **What was done:** Created server/lib/sectorTags.js with keyword + committee-based rules for 13 sectors: Semiconductors, Defense, Energy, Financial Regulation, Healthcare, Trade, Cross-Strait, Foreign Investment, Data & Technology, Labor, Environment, Agriculture, Transportation. Tags are computed server-side from raw Chinese bill fields (before translation) in server/routes/bills.js, included in both list and detail API responses as a `sectors` array. Added `sector` badge type to StatusBadge.jsx using --teal/--teal-light tokens. Sector badges displayed inline under bill name in Bills list, in the header on BillDetail, and alongside category/status on Dashboard recent bills. Sector filter dropdown added to Bills page (client-side, filters current page; server-side filtering requires the database, see 2.5).
 
 ### 2.1 Add term and session selectors to Bills page
