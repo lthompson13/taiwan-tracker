@@ -157,6 +157,20 @@ function Dashboard() {
                       </span>
                     )}
                   </div>
+                  {bill.summary && (
+                    <p style={{
+                      marginTop: '8px',
+                      fontSize: '0.825rem',
+                      color: 'var(--text-secondary)',
+                      lineHeight: 1.55,
+                      borderLeft: '3px solid var(--navy)',
+                      paddingLeft: '10px',
+                    }}>
+                      {bill.summary.summary.length > 160
+                        ? bill.summary.summary.slice(0, 160) + '…'
+                        : bill.summary.summary}
+                    </p>
+                  )}
                 </div>
                 <span style={recentDateStyle}>{bill.latestProgressDate || '—'}</span>
               </div>

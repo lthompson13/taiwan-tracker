@@ -155,9 +155,26 @@ function Bills() {
       label: 'Bill name',
       render: (val, row) => (
         <div>
-          <span style={{ color: 'var(--text-primary)' }}>
-            {val ? (val.length > 80 ? val.slice(0, 80) + '…' : val) : '—'}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
+            <span style={{ color: 'var(--text-primary)' }}>
+              {val ? (val.length > 80 ? val.slice(0, 80) + '…' : val) : '—'}
+            </span>
+            {row.summary && (
+              <span style={{
+                fontSize: '0.65rem',
+                fontWeight: 700,
+                color: 'var(--navy)',
+                background: 'var(--navy-light)',
+                border: '1px solid var(--navy)',
+                borderRadius: '999px',
+                padding: '1px 7px',
+                whiteSpace: 'nowrap',
+                letterSpacing: '0.04em',
+              }}>
+                Analysis
+              </span>
+            )}
+          </div>
           {Array.isArray(row.sectors) && row.sectors.length > 0 && (
             <div style={{ marginTop: '5px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
               {row.sectors.map((s) => (

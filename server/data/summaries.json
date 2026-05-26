@@ -1,0 +1,10 @@
+{
+  "_instructions": {
+    "format": "{ \"<billId>\": { \"summary\": \"<2-3 sentence plain-English business impact summary>\", \"updatedAt\": \"YYYY-MM-DD\" } }",
+    "note": "Delete this _instructions key before publishing the first real summary. billId matches the 議案編號 field visible in the bill detail URL and API response.",
+    "example": {
+      "summary": "This bill would impose new export licensing requirements on advanced semiconductor packaging equipment. If passed, it could affect foreign chip manufacturers sourcing packaging services from Taiwan and may require compliance reviews for existing supply contracts.",
+      "updatedAt": "2026-05-26"
+    }
+  }
+}

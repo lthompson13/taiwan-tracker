@@ -60,6 +60,9 @@ taiwan_project/
 │   │   ├── translateFields.js # Field-level translation helper
 │   │   └── filterMaps.js     # English-to-Chinese filter value mapping (party, status, category)
 │   │   └── sectorTags.js      # Keyword + committee rules mapping Chinese bill fields to 13 sector labels
+│   │   └── summaries.js       # Loads server/data/summaries.json; exposes getSummary(billId)
+│   ├── data/
+│   │   └── summaries.json     # Editorial "Why It Matters" summaries keyed by billId (committed to git)
 │   └── scripts/
 │       └── discover-statuses.js # One-off: samples the LY API to list real 議案狀態 values
 │

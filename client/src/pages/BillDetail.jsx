@@ -115,6 +115,41 @@ function BillDetail() {
         </div>
       </div>
 
+      {bill.summary && (
+        <div style={{
+          background: 'var(--navy-light)',
+          border: '1px solid var(--navy)',
+          borderLeft: '4px solid var(--navy)',
+          borderRadius: 'var(--radius-md)',
+          padding: '16px 20px',
+          marginBottom: '20px',
+        }}>
+          <div style={{
+            fontSize: '0.7rem',
+            fontWeight: 700,
+            color: 'var(--navy)',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            marginBottom: '8px',
+          }}>
+            Why It Matters
+          </div>
+          <p style={{
+            color: 'var(--text-primary)',
+            fontSize: '0.925rem',
+            lineHeight: 1.65,
+            margin: 0,
+          }}>
+            {bill.summary.summary}
+          </p>
+          {bill.summary.updatedAt && (
+            <div style={{ marginTop: '10px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              Updated {bill.summary.updatedAt}
+            </div>
+          )}
+        </div>
+      )}
+
       <Panel title="Bill details">
         <div style={infoRowStyle}><span style={infoLabelStyle}>Proposer</span><span style={infoValueStyle}>{bill.proposer || '—'}</span></div>
         <div style={infoRowStyle}><span style={infoLabelStyle}>Source</span><span style={infoValueStyle}>{bill.source || '—'}</span></div>

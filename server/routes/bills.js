@@ -4,6 +4,7 @@ const { fetchFromLY } = require('../lib/lyApi');
 const { translateBill } = require('../lib/translateFields');
 const { getStatus: getTranslationStatus } = require('../lib/translate');
 const { tagBill } = require('../lib/sectorTags');
+const { getSummary } = require('../lib/summaries');
 const {
   BILL_CATEGORY_MAP,
   BILL_STATUS_MAP,
@@ -86,8 +87,11 @@ router.get('/', async (req, res) => {
 
   const bills = Array.isArray(data.bills) ? data.bills.map(mapBill) : [];
 
-  // Tag before translation — rules match against raw Chinese text
-  bills.forEach((bill) => { bill.sectors = tagBill(bill); });
+  // Tag and attach editorial summary before translation
+  bills.forEach((bill) => {
+    bill.sectors = tagBill(bill);
+    bill.summary = getSummary(bill.billId);
+  });
 
   const translated = await Promise.all(bills.map(translateBill));
 
@@ -122,6 +126,7 @@ router.get('/:id', async (req, res) => {
 
   const bill = bills[0];
   bill.sectors = tagBill(bill);
+  bill.summary = getSummary(bill.billId);
   res.json(await translateBill(bill));
 });
 
