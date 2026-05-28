@@ -34,10 +34,7 @@ These features transform the project from a data browser into a product someone 
 **Implementation approach:** Build an email template system. Create an admin interface where the founder can select bills for the weekly digest, add/edit summaries, and send. Use a service like SendGrid, Mailgun, or Resend for email delivery. Requires a subscriber list (database needed — see 2.5).
 
 ### 2.5 Add a database
-**Status:** Not started
-**What:** Add persistent storage to the application.
-**Why:** Required for: sector tags, editorial summaries, user accounts, watchlists, alert preferences, subscriber lists, and historical archive. The current read-through architecture cannot support any paid product features. (Translation cache is solved via Upstash Redis — see 1.5.)
-**Implementation approach:** PostgreSQL is the recommended choice — Railway lets you spin up a PostgreSQL instance with one click in the same project. Use an ORM like Prisma for type-safe database access. Initial schema should include tables for: cached bills (with sector tags and editorial summaries), digest subscribers, translation cache, and eventually user accounts.
+**Status:** Complete
 
 ### 2.6 Searchable legislative archive
 **Status:** Not started
@@ -105,6 +102,10 @@ Nice-to-have improvements that increase value but aren't critical for launch.
 
 ### 2.2 Sector tagging system
 **Completed:** May 2026
+
+### 2.5 Add a database
+**Completed:** May 2026
+**What was done:** Added PostgreSQL via Prisma ORM (v6). Schema: BillSummary (keyed by billId, replaces summaries.json as primary store) and Subscriber (for digest email list). server/lib/db.js exports a Prisma singleton and initDb() which runs prisma migrate deploy at startup, gracefully skipped when DATABASE_URL is absent. server/lib/summaries.js updated to query DB first and fall back to summaries.json. server/routes/admin.js provides CRUD for summaries and subscribers behind ADMIN_SECRET bearer auth, mounted at /api/admin. server/scripts/seed-summaries.js migrates summaries.json into the database. postinstall in server/package.json runs prisma generate automatically on Railway builds. New env vars: DATABASE_URL (Railway reference variable to Postgres service), ADMIN_SECRET.
 
 ### 2.3 "Why It Matters" editorial summaries
 **Completed:** May 2026
