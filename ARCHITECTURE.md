@@ -2,7 +2,7 @@
 
 ## Overview
 
-A monorepo Node.js application with an Express backend and React frontend. The backend serves as a proxy/translation layer between the Taiwan Legislative Yuan API and the React client. Currently read-through only (no database); future versions will add persistent storage.
+A monorepo Node.js application with an Express backend and React frontend. The backend serves as a proxy/translation layer between the Taiwan Legislative Yuan API and the React client. Backed by PostgreSQL (via Prisma) when DATABASE_URL is set; degrades gracefully to read-through-only mode without it.
 
 ## Tech Stack
 
@@ -13,6 +13,7 @@ A monorepo Node.js application with an Express backend and React frontend. The b
 | HTTP Client | node-fetch v2.7.0 |
 | Translation | Google Cloud Translation API (@google-cloud/translate v9.3.0) |
 | Cache (persistent) | Upstash Redis (@upstash/redis) — optional, degrades to in-memory if not configured |
+| Database | PostgreSQL via Prisma ORM (@prisma/client v6) — optional, degrades gracefully if DATABASE_URL absent |
 | Deployment | Railway (Hobby plan, auto-deploys from GitHub) |
 | Dev Tooling | concurrently (parallel dev servers) |
 
@@ -51,20 +52,25 @@ taiwan_project/
 │   │   ├── legislators.js    # /api/legislators, /api/legislators/:id (server-side filtering)
 │   │   ├── bills.js          # /api/bills, /api/bills/:id (server-side filtering)
 │   │   ├── committees.js     # /api/committees
-│   │   └── interpellations.js # /api/interpellations
+│   │   ├── interpellations.js # /api/interpellations
+│   │   └── admin.js           # /api/admin/* — summaries + subscriber CRUD (requires ADMIN_SECRET)
 │   ├── lib/
 │   │   ├── lyApi.js          # LY API wrapper — all upstream HTTP calls go through here
 │   │   ├── translate.js      # Google Translate wrapper; two-level cache: L1 in-memory
 │   │   │                     #   (5000, FIFO) + L2 Upstash Redis (90-day TTL, optional)
 │   │   │                     #   + health tracking (isEnabled / getStatus / redisEnabled)
 │   │   ├── translateFields.js # Field-level translation helper
-│   │   └── filterMaps.js     # English-to-Chinese filter value mapping (party, status, category)
-│   │   └── sectorTags.js      # Keyword + committee rules mapping Chinese bill fields to 13 sector labels
-│   │   └── summaries.js       # Loads server/data/summaries.json; exposes getSummary(billId)
+│   │   ├── filterMaps.js     # English-to-Chinese filter value mapping (party, status, category)
+│   │   ├── sectorTags.js     # Keyword + committee rules mapping Chinese bill fields to 13 sector labels
+│   │   ├── summaries.js      # getSummary(billId): queries DB first, falls back to summaries.json
+│   │   └── db.js             # Prisma client singleton + initDb() (runs migrations at startup)
 │   ├── data/
 │   │   └── summaries.json     # Editorial "Why It Matters" summaries keyed by billId (committed to git)
-│   └── scripts/
-│       └── discover-statuses.js # One-off: samples the LY API to list real 議案狀態 values
+│   ├── prisma/
+│   │   ├── schema.prisma      # Prisma schema — BillSummary and Subscriber models
+│   │   └── migrations/        # SQL migration files applied by │   └── scripts/
+│       ├── discover-statuses.js # One-off: samples the LY API to list real 議案狀態 values
+│       └── seed-summaries.js    # One-off: imports summaries.json into the database
 │
 └── client/
     ├── vite.config.js        # Dev server proxies /api → localhost:3001
@@ -159,6 +165,8 @@ User browser
 | Variable | Required | Where Set | Purpose |
 |----------|----------|-----------|---------|
 | GOOGLE_TRANSLATE_API_KEY | Yes (for translation) | Railway dashboard | Google Cloud Translation API key |
+| DATABASE_URL | No (but strongly recommended) | Railway dashboard | PostgreSQL connection string — enables summaries DB, subscriber table, future auth |
+| ADMIN_SECRET | No (needed to use admin API) | Railway dashboard | Bearer token protecting /api/admin/* endpoints |
 | UPSTASH_REDIS_REST_URL | No (but strongly recommended) | Railway dashboard | Upstash Redis REST endpoint — enables persistent translation cache |
 | UPSTASH_REDIS_REST_TOKEN | No (but strongly recommended) | Railway dashboard | Upstash Redis REST token |
 | PORT | No (auto-assigned) | Railway (automatic) | Server port |
@@ -167,7 +175,7 @@ See .env.example in the project root for the canonical list.
 
 ## Current Limitations
 
-1. **No database** — no persistent storage, no user data, no historical tracking
+1. ~~**No database**~~ — resolved in 2.5: PostgreSQL via Prisma, degrades gracefully if DATABASE_URL absent
 2. **No authentication** — completely public, no user accounts
 3. ~~**In-memory translation cache is volatile**~~ — resolved in 1.5: two-level cache with Upstash Redis L2 persists across redeploys
 4. ~~**No term/session selectors on Bills page**~~ — resolved in 2.1: Term and Session dropdowns added to the Bills page, defaulting to Term 11 / all sessions

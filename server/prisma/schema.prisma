@@ -1,0 +1,27 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Editorial "Why It Matters" summaries, keyed by LY API bill ID (議案編號).
+// Replaces server/data/summaries.json once the database is live.
+model BillSummary {
+  id        Int      @id @default(autoincrement())
+  billId    String   @unique
+  summary   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Weekly digest email subscribers.
+model Subscriber {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}

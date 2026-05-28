@@ -88,10 +88,10 @@ router.get('/', async (req, res) => {
   const bills = Array.isArray(data.bills) ? data.bills.map(mapBill) : [];
 
   // Tag and attach editorial summary before translation
-  bills.forEach((bill) => {
+  await Promise.all(bills.map(async (bill) => {
     bill.sectors = tagBill(bill);
-    bill.summary = getSummary(bill.billId);
-  });
+    bill.summary = await getSummary(bill.billId);
+  }));
 
   const translated = await Promise.all(bills.map(translateBill));
 
@@ -126,7 +126,7 @@ router.get('/:id', async (req, res) => {
 
   const bill = bills[0];
   bill.sectors = tagBill(bill);
-  bill.summary = getSummary(bill.billId);
+  bill.summary = await getSummary(bill.billId);
   res.json(await translateBill(bill));
 });
 

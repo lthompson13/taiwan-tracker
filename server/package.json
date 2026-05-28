@@ -3,14 +3,17 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "node --watch index.js"
+    "dev": "node --watch index.js",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@google-cloud/translate": "^9.3.0",
+    "@prisma/client": "^6.19.3",
     "@upstash/redis": "^1.38.0",
     "cors": "^2.8.5",
     "dotenv": "^17.3.1",
     "express": "^4.21.2",
-    "node-fetch": "^2.7.0"
+    "node-fetch": "^2.7.0",
+    "prisma": "^6.19.3"
   }
 }
