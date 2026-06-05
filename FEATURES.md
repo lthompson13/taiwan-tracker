@@ -28,7 +28,7 @@ These features transform the project from a data browser into a product someone 
 **Status:** Complete
 
 ### 2.4 Searchable legislative archive
-**Status:** Not started
+**Status:** Complete
 **What:** A full-text search across all historical bills, with filters by sector, date range, committee, proposer, and status.
 **Why:** The archive grows in value over time. An analyst doing due diligence on a Taiwanese company wants to search for all legislation related to that sector over the past two years. This is a feature that creates a compounding moat — every week of operation makes the archive more valuable.
 **Implementation approach:** Requires the database (2.5). Periodically sync bills from the LY API into local storage. Add a search endpoint that queries the local database rather than the LY API, enabling full-text search with filters that aren't available through the upstream API.
@@ -98,6 +98,10 @@ Nice-to-have improvements that increase value but aren't critical for launch.
 
 ### 2.2 Sector tagging system
 **Completed:** May 2026
+
+### 2.4 Searchable legislative archive
+**Completed:** May 2026
+**What was done:** Added Bill table to Prisma schema (migration 20260529000000_add_bills) with indices on term/session, status, and date. server/lib/billSync.js fetches all pages for given terms from the LY API, tags sectors, translates fields, and upserts into the database — skipping bills whose latestProgressDate is unchanged to avoid redundant translation. server/routes/archive.js provides GET /api/archive with free-text search (ILIKE on English + Chinese bill name and proposer) plus sector/term/status filters. POST /api/admin/sync triggers a sync for specified terms (fire-and-forget); GET /api/admin/sync/status returns archive count and last sync time. New Archive page at /archive with search input, three filter dropdowns, paginated results showing sector/status badges, and link to bill detail. Added Archive to sidebar navigation.
 
 ### 2.5 Add a database
 **Completed:** May 2026

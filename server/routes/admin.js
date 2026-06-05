@@ -14,6 +14,7 @@ const express = require('express');
 const router = express.Router();
 const { getDb } = require('../lib/db');
 const { upsertSummary, deleteSummary, getAllSummaries } = require('../lib/summaries');
+const { syncBills } = require('../lib/billSync');
 
 // ---------------------------------------------------------------------------
 // Auth middleware
@@ -134,6 +135,46 @@ router.delete('/subscribers/:id', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: 'Subscriber not found' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Bill archive sync
+// ---------------------------------------------------------------------------
+
+// POST /api/admin/sync — trigger a bill sync for one or more terms
+// Body: { terms: [11] }  (defaults to [11] if omitted)
+// Returns immediately; sync runs in background and logs to console.
+router.post('/sync', async (req, res) => {
+  const terms = Array.isArray(req.body.terms) ? req.body.terms.map(Number) : [11];
+  const validTerms = terms.filter((t) => Number.isInteger(t) && t > 0);
+  if (validTerms.length === 0) {
+    return res.status(400).json({ error: 'Provide at least one valid term number in "terms"' });
+  }
+
+  // Respond immediately — sync runs in background
+  res.json({ message: 'Sync started', terms: validTerms });
+
+  syncBills(validTerms).then(({ synced, skipped, errors }) => {
+    console.log(`[admin/sync] Complete — synced: ${synced}, skipped: ${skipped}, errors: ${errors}`);
+  }).catch((err) => {
+    console.error('[admin/sync] Failed:', err.message);
+  });
+});
+
+// GET /api/admin/sync/status — count of bills in archive + last sync time
+router.get('/sync/status', async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'Database not configured' });
+
+    const [count, latest] = await Promise.all([
+      db.bill.count(),
+      db.bill.findFirst({ orderBy: { syncedAt: 'desc' }, select: { syncedAt: true } }),
+    ]);
+    res.json({ billsInArchive: count, lastSyncedAt: latest?.syncedAt || null });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });

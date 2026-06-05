@@ -8,6 +8,7 @@ import BillDetail from './pages/BillDetail';
 import Interpellations from './pages/Interpellations';
 import Committees from './pages/Committees';
 import Activity from './pages/Activity';
+import Archive from './pages/Archive';
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
           <Route path="interpellations" element={<Interpellations />} />
           <Route path="committees" element={<Committees />} />
           <Route path="activity" element={<Activity />} />
+          <Route path="archive" element={<Archive />} />
         </Route>
       </Routes>
     </BrowserRouter>

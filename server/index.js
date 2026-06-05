@@ -26,6 +26,7 @@ app.use('/api/bills', require('./routes/bills'));
 app.use('/api/committees', require('./routes/committees'));
 app.use('/api/interpellations', require('./routes/interpellations'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/archive', require('./routes/archive'));
 
 // Serve static files from the React client build
 const clientBuildPath = path.join(__dirname, '..', 'client', 'dist');

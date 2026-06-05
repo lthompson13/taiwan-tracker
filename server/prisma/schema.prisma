@@ -25,3 +25,24 @@ model Subscriber {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 }
+
+// Locally synced bills from the Legislative Yuan API.
+// Enables full-text search and filtering that the upstream API cannot provide.
+model Bill {
+  id                 Int      @id @default(autoincrement())
+  billId             String   @unique
+  billName           String?  // translated English
+  billNameZh         String?  // original Chinese (for Chinese-language search)
+  term               Int?
+  session            Int?
+  category           String?
+  status             String?
+  proposer           String?
+  source             String?
+  latestProgressDate String?
+  referenceNumber    String?
+  sectors            String[]
+  url                String?
+  syncedAt           DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
