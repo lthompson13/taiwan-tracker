@@ -27,16 +27,7 @@ These features transform the project from a data browser into a product someone 
 ### 2.3 "Why It Matters" editorial summaries
 **Status:** Complete
 
-### 2.4 Weekly digest email
-**Status:** Not started
-**What:** A curated weekly email summarizing the most significant legislative developments with sector tags and brief business-relevance summaries. Includes links back to the platform for full details.
-**Why:** This serves two purposes — it's a lower-friction way for users to consume the intelligence (not everyone wants to check a dashboard daily), and it's the primary marketing and conversion tool. Free subscribers receive the digest; the digest drives them to the full platform.
-**Implementation approach:** Build an email template system. Create an admin interface where the founder can select bills for the weekly digest, add/edit summaries, and send. Use a service like SendGrid, Mailgun, or Resend for email delivery. Requires a subscriber list (database needed — see 2.5).
-
-### 2.5 Add a database
-**Status:** Complete
-
-### 2.6 Searchable legislative archive
+### 2.4 Searchable legislative archive
 **Status:** Not started
 **What:** A full-text search across all historical bills, with filters by sector, date range, committee, proposer, and status.
 **Why:** The archive grows in value over time. An analyst doing due diligence on a Taiwanese company wants to search for all legislation related to that sector over the past two years. This is a feature that creates a compounding moat — every week of operation makes the archive more valuable.
@@ -95,6 +86,11 @@ Nice-to-have improvements that increase value but aren't critical for launch.
 ### 4.6 Admin dashboard
 **What:** A private admin interface for managing editorial content — writing/editing bill summaries, curating the weekly digest, managing subscriber lists, viewing usage analytics.
 **Why:** Makes the editorial workflow sustainable as the product scales.
+
+### 4.7 Weekly digest email
+**What:** A curated weekly email summarizing the most significant legislative developments with sector tags and brief business-relevance summaries. Includes links back to the platform for full details.
+**Why:** Lower-friction consumption for subscribers and a marketing/conversion tool for the paid tier. Moved here from Priority 2 — build the product first, then use the digest to market it.
+**Implementation approach:** HTML email template, subscriber management via the database (Subscriber table already exists from 2.5), send endpoint, and a simple admin interface to compose and trigger sends. Use Resend for email delivery.
 
 ---
 
