@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Panel from '../components/Panel';
-import DataTable from '../components/DataTable';
 import StatusBadge from '../components/StatusBadge';
 import SearchBar from '../components/SearchBar';
 import Loader from '../components/Loader';
 import Pagination from '../components/Pagination';
 
-// Term 11 is the current term (since Feb 2024). Terms run four years; each
-// term has up to 8 sessions (2 per year). Default to term 11, all sessions.
+// Bills page now queries the local database (via /api/archive) rather than
+// the live LY API. This enables full-text search and sector filtering across
+// the full dataset, and supports future user annotations, comments, and
+// watchlists. The LY API runs as a background sync to keep the database fresh.
+
 const TERM_OPTIONS = [
   { value: '',   label: 'All terms' },
   { value: '11', label: 'Term 11 (2024–present)' },
@@ -31,24 +33,21 @@ const SESSION_OPTIONS = [
 
 const SECTOR_OPTIONS = [
   { value: '', label: 'All sectors' },
-  { value: 'Semiconductors',      label: 'Semiconductors' },
-  { value: 'Defense',             label: 'Defense' },
-  { value: 'Energy',              label: 'Energy' },
-  { value: 'Financial Regulation',label: 'Financial Regulation' },
-  { value: 'Healthcare',          label: 'Healthcare' },
-  { value: 'Trade',               label: 'Trade' },
-  { value: 'Cross-Strait',        label: 'Cross-Strait' },
-  { value: 'Foreign Investment',  label: 'Foreign Investment' },
-  { value: 'Data & Technology',   label: 'Data & Technology' },
-  { value: 'Labor',               label: 'Labor' },
-  { value: 'Environment',         label: 'Environment' },
-  { value: 'Agriculture',         label: 'Agriculture' },
-  { value: 'Transportation',      label: 'Transportation' },
+  { value: 'Semiconductors',       label: 'Semiconductors' },
+  { value: 'Defense',              label: 'Defense' },
+  { value: 'Energy',               label: 'Energy' },
+  { value: 'Financial Regulation', label: 'Financial Regulation' },
+  { value: 'Healthcare',           label: 'Healthcare' },
+  { value: 'Trade',                label: 'Trade' },
+  { value: 'Cross-Strait',         label: 'Cross-Strait' },
+  { value: 'Foreign Investment',   label: 'Foreign Investment' },
+  { value: 'Data & Technology',    label: 'Data & Technology' },
+  { value: 'Labor',                label: 'Labor' },
+  { value: 'Environment',          label: 'Environment' },
+  { value: 'Agriculture',          label: 'Agriculture' },
+  { value: 'Transportation',       label: 'Transportation' },
 ];
 
-// Status options reflect the actual taxonomy used by the LY API (verified
-// via server/scripts/discover-statuses.js). Each value must match a key
-// in BILL_STATUS_MAP in server/lib/filterMaps.js.
 const STATUS_OPTIONS = [
   { value: '', label: 'All statuses' },
   { value: 'Scheduled for Plenary', label: 'Scheduled for Plenary' },
@@ -61,14 +60,6 @@ const STATUS_OPTIONS = [
   { value: 'Reply for Reference', label: 'Reply for Reference' },
 ];
 
-const CATEGORY_OPTIONS = [
-  { value: '', label: 'All categories' },
-  { value: 'Legislation', label: 'Legislation' },
-  { value: 'Budget', label: 'Budget' },
-  { value: 'Resolution', label: 'Resolution' },
-  { value: 'Other', label: 'Other' },
-];
-
 function getStatusBadgeType(status) {
   if (!status) return 'default';
   if (status === 'Third Reading (Passed)') return 'success';
@@ -77,20 +68,28 @@ function getStatusBadgeType(status) {
   return 'default';
 }
 
+function formatSyncDate(iso) {
+  if (!iso) return null;
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 const LIMIT = 20;
 
 function Bills() {
   const navigate = useNavigate();
-  const [bills, setBills] = useState([]);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
+
   const [search, setSearch] = useState('');
-  const [termFilter, setTermFilter] = useState('11');
+  const [termFilter, setTermFilter] = useState('');
   const [sessionFilter, setSessionFilter] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
   const [sectorFilter, setSectorFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [page, setPage] = useState(1);
+
+  const [bills, setBills] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalInArchive, setTotalInArchive] = useState(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -100,22 +99,22 @@ function Bills() {
         setLoading(true);
         setError(null);
 
-        const params = new URLSearchParams({
-          page: page.toString(),
-          limit: LIMIT.toString(),
-        });
+        const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
+        if (search.trim()) params.set('q', search.trim());
         if (termFilter) params.set('term', termFilter);
         if (sessionFilter) params.set('session', sessionFilter);
-        if (categoryFilter) params.set('category', categoryFilter);
+        if (sectorFilter) params.set('sector', sectorFilter);
         if (statusFilter) params.set('status', statusFilter);
 
-        const res = await fetch(`/api/bills?${params}`);
+        const res = await fetch(`/api/archive?${params}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
 
         setBills(data.bills || []);
-        setTotalPages(data.totalPages || 1);
         setTotal(data.total || 0);
+        setTotalPages(data.totalPages || 1);
+        setTotalInArchive(data.totalInArchive ?? null);
+        setLastSyncedAt(data.lastSyncedAt || null);
       } catch (err) {
         setError('Failed to load bills: ' + err.message);
       } finally {
@@ -124,99 +123,14 @@ function Bills() {
     };
 
     fetchBills();
-  }, [page, termFilter, sessionFilter, categoryFilter, statusFilter]);
+  }, [page, search, termFilter, sessionFilter, sectorFilter, statusFilter]);
 
   const handleFilterChange = (key, value) => {
-    if (key === 'term') {
-      setTermFilter(value);
-      setSessionFilter(''); // reset session when term changes
-    }
+    if (key === 'term') { setTermFilter(value); setSessionFilter(''); }
     if (key === 'session') setSessionFilter(value);
-    if (key === 'category') setCategoryFilter(value);
-    if (key === 'status') setStatusFilter(value);
     if (key === 'sector') setSectorFilter(value);
+    if (key === 'status') setStatusFilter(value);
     setPage(1);
-  };
-
-  // Search and sector are client-side filters (current page).
-  // Term, session, category, and status are server-side (change the API query).
-  const filteredBills = bills.filter((bill) => {
-    const matchesSearch = !search ||
-      (bill.billName && bill.billName.toLowerCase().includes(search.toLowerCase())) ||
-      (bill.proposer && bill.proposer.toLowerCase().includes(search.toLowerCase()));
-    const matchesSector = !sectorFilter ||
-      (Array.isArray(bill.sectors) && bill.sectors.includes(sectorFilter));
-    return matchesSearch && matchesSector;
-  });
-
-  const columns = [
-    {
-      key: 'billName',
-      label: 'Bill name',
-      render: (val, row) => (
-        <div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
-            <span style={{ color: 'var(--text-primary)' }}>
-              {val ? (val.length > 80 ? val.slice(0, 80) + '…' : val) : '—'}
-            </span>
-            {row.summary && (
-              <span style={{
-                fontSize: '0.65rem',
-                fontWeight: 700,
-                color: 'var(--navy)',
-                background: 'var(--navy-light)',
-                border: '1px solid var(--navy)',
-                borderRadius: '999px',
-                padding: '1px 7px',
-                whiteSpace: 'nowrap',
-                letterSpacing: '0.04em',
-              }}>
-                Analysis
-              </span>
-            )}
-          </div>
-          {Array.isArray(row.sectors) && row.sectors.length > 0 && (
-            <div style={{ marginTop: '5px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-              {row.sectors.map((s) => (
-                <StatusBadge key={s} label={s} type="sector" />
-              ))}
-            </div>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: 'category',
-      label: 'Category',
-      render: (val) => <StatusBadge label={val || '—'} type="info" />,
-    },
-    {
-      key: 'status',
-      label: 'Status',
-      render: (val) => <StatusBadge label={val || '—'} type={getStatusBadgeType(val)} />,
-    },
-    {
-      key: 'proposer',
-      label: 'Proposer',
-      render: (val) => (
-        <span style={{ color: 'var(--text-secondary)', fontSize: '0.825rem' }}>
-          {val ? (val.length > 40 ? val.slice(0, 40) + '…' : val) : '—'}
-        </span>
-      ),
-    },
-    {
-      key: 'latestProgressDate',
-      label: 'Latest date',
-      render: (val) => (
-        <span style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap', fontSize: '0.825rem' }}>
-          {val || '—'}
-        </span>
-      ),
-    },
-  ];
-
-  const handleRowClick = (row) => {
-    if (row.billId) navigate(`/bills/${encodeURIComponent(row.billId)}`);
   };
 
   return (
@@ -224,21 +138,27 @@ function Bills() {
       <div style={{ marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid var(--border-subtle)' }}>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Bills</h1>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>
-          {total.toLocaleString()} bills tracked
+          {totalInArchive != null
+            ? `${totalInArchive.toLocaleString()} bills in database`
+            : 'Legislative Yuan bill database'}
+          {lastSyncedAt && (
+            <span style={{ marginLeft: '10px', color: 'var(--border-strong)' }}>
+              · Last synced {formatSyncDate(lastSyncedAt)}
+            </span>
+          )}
         </p>
       </div>
 
       <SearchBar
         value={search}
-        onChange={(val) => { setSearch(val); }}
-        placeholder="Search bill name or proposer…"
+        onChange={(val) => { setSearch(val); setPage(1); }}
+        placeholder="Search bill name, number, or proposer…"
         onSearch={() => {}}
         filters={[
-          { key: 'term',     label: 'Term',     value: termFilter,     options: TERM_OPTIONS     },
-          { key: 'session',  label: 'Session',  value: sessionFilter,  options: SESSION_OPTIONS  },
-          { key: 'category', label: 'Category', value: categoryFilter, options: CATEGORY_OPTIONS },
-          { key: 'status',   label: 'Status',   value: statusFilter,   options: STATUS_OPTIONS   },
-          { key: 'sector',   label: 'Sector',   value: sectorFilter,   options: SECTOR_OPTIONS   },
+          { key: 'term',    label: 'Term',    value: termFilter,    options: TERM_OPTIONS    },
+          { key: 'session', label: 'Session', value: sessionFilter, options: SESSION_OPTIONS },
+          { key: 'sector',  label: 'Sector',  value: sectorFilter,  options: SECTOR_OPTIONS  },
+          { key: 'status',  label: 'Status',  value: statusFilter,  options: STATUS_OPTIONS  },
         ]}
         onFilterChange={handleFilterChange}
       />
@@ -251,14 +171,70 @@ function Bills() {
 
       {loading ? (
         <Loader text="Loading bills" />
+      ) : bills.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+          No bills found matching your filters.
+        </div>
       ) : (
-        <Panel title="Bills">
-          <DataTable columns={columns} data={filteredBills} onRowClick={handleRowClick} />
-        </Panel>
-      )}
+        <>
+          {(search || termFilter || sessionFilter || sectorFilter || statusFilter) && (
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
+              {total.toLocaleString()} result{total !== 1 ? 's' : ''}
+            </div>
+          )}
+          <Panel title="Bills">
+            {bills.map((bill, idx) => (
+              <div
+                key={bill.billId}
+                onClick={() => navigate(`/bills/${encodeURIComponent(bill.billId)}`)}
+                style={{
+                  padding: '14px 0',
+                  borderBottom: idx < bills.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                  cursor: 'pointer',
+                  transition: 'background 0.1s',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)', marginBottom: '6px', lineHeight: 1.4 }}>
+                      {bill.billName || bill.billNameZh || 'Untitled'}
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                      {bill.status && <StatusBadge label={bill.status} type={getStatusBadgeType(bill.status)} />}
+                      {bill.category && <StatusBadge label={bill.category} type="info" />}
+                      {Array.isArray(bill.sectors) && bill.sectors.map((s) => (
+                        <StatusBadge key={s} label={s} type="sector" />
+                      ))}
+                      {bill.proposer && (
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                          {bill.proposer.length > 50 ? bill.proposer.slice(0, 50) + '…' : bill.proposer}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    {bill.term && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '2px' }}>
+                        Term {bill.term}{bill.session ? ` · Session ${bill.session}` : ''}
+                      </div>
+                    )}
+                    {bill.latestProgressDate && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        {bill.latestProgressDate}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </Panel>
 
-      {!loading && totalPages > 1 && (
-        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+          {totalPages > 1 && (
+            <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+          )}
+        </>
       )}
     </div>
   );

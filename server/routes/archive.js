@@ -42,6 +42,7 @@ router.get('/', async (req, res) => {
   if (q && q.trim()) {
     const trimmed = q.trim();
     where.OR = [
+      { billId:     { contains: trimmed, mode: 'insensitive' } },
       { billName:   { contains: trimmed, mode: 'insensitive' } },
       { billNameZh: { contains: trimmed, mode: 'insensitive' } },
       { proposer:   { contains: trimmed, mode: 'insensitive' } },
@@ -55,6 +56,12 @@ router.get('/', async (req, res) => {
   if (term) {
     const termNum = parseInt(term, 10);
     if (!isNaN(termNum)) where.term = termNum;
+  }
+
+  const { session } = req.query;
+  if (session) {
+    const sessionNum = parseInt(session, 10);
+    if (!isNaN(sessionNum)) where.session = sessionNum;
   }
 
   if (status) {
