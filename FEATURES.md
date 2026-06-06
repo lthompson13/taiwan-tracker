@@ -38,20 +38,25 @@ These features transform the project from a data browser into a product someone 
 ## PRIORITY 3 — Monetization Features
 
 These features enable the transition from free tool to paid product.
+### 3.1 Scheduled database sync
+**Status:** Not started
+**What:** Automate the LY API sync so the bill database stays fresh without manual curl commands. The sync should run on a daily schedule, fetching new and updated bills for the current term and session.
+**Why:** The Bills page now queries the local database. If the database isn't refreshed regularly, users see stale data. A daily sync keeps the platform current without any manual intervention.
+**Implementation approach:** Railway supports cron jobs via its built-in scheduler (add a service with a cron schedule that calls POST /api/admin/sync). Alternatively, use an external scheduler like EasyCron or GitHub Actions on a schedule to hit the sync endpoint. The sync endpoint already exists and handles incremental updates (skips bills whose latestProgressDate hasn't changed).
 
-### 3.1 User authentication and accounts
+### 3.2 User authentication and accounts
 **Status:** Not started
 **What:** User registration, login, and session management.
 **Why:** Required for personalized features (watchlists, alerts) and for gating premium content behind a paywall.
 **Implementation approach:** Use a service like Clerk, Auth0, or Supabase Auth to avoid building auth from scratch. Start simple — email/password registration with email verification.
 
-### 3.2 Bill watchlist and alerts
+### 3.3 Bill watchlist and alerts
 **Status:** Not started
 **What:** Authenticated users can "watch" specific bills or sector tags and receive email notifications when watched items have status changes (bill advances to committee, gets amended, goes to floor vote, passes).
 **Why:** Real-time alerting is one of the highest-value features for professional users. Knowing today that a semiconductor export control bill passed committee is actionable intelligence. Knowing about it three days later is not.
-**Implementation approach:** Requires database (2.5) and auth (3.1). Build a background job that periodically checks watched bills against the LY API for status changes and sends notification emails.
+**Implementation approach:** Requires database (2.5) and auth (3.2). Build a background job that periodically checks watched bills against the LY API for status changes and sends notification emails.
 
-### 3.3 Subscription tiers and payment
+### 3.4 Subscription tiers and payment
 **Status:** Not started
 **What:** Free tier (weekly digest only) and paid tier (full dashboard access, alerts, archive search, editorial summaries).
 **Why:** Revenue.
@@ -91,6 +96,11 @@ Nice-to-have improvements that increase value but aren't critical for launch.
 **What:** A curated weekly email summarizing the most significant legislative developments with sector tags and brief business-relevance summaries. Includes links back to the platform for full details.
 **Why:** Lower-friction consumption for subscribers and a marketing/conversion tool for the paid tier. Moved here from Priority 2 — build the product first, then use the digest to market it.
 **Implementation approach:** HTML email template, subscriber management via the database (Subscriber table already exists from 2.5), send endpoint, and a simple admin interface to compose and trigger sends. Use Resend for email delivery.
+
+### 4.8 Sync earlier legislative terms
+**What:** Run the bill sync for terms 8, 9, and 10 to build out the full historical archive going back to 2012.
+**Why:** The archive compounds in value over time. Analysts doing due diligence want multi-year legislative history, not just the current term.
+**Implementation approach:** Run the existing sync command once per term/session combination (same as term 11). No code changes needed — the sync infrastructure already supports any term. Do this when Google Translate budget allows, as earlier terms represent significant new translation volume.
 
 ---
 
