@@ -45,7 +45,7 @@ These features enable the transition from free tool to paid product.
 **Implementation approach:** Railway supports cron jobs via its built-in scheduler (add a service with a cron schedule that calls POST /api/admin/sync). Alternatively, use an external scheduler like EasyCron or GitHub Actions on a schedule to hit the sync endpoint. The sync endpoint already exists and handles incremental updates (skips bills whose latestProgressDate hasn't changed).
 
 ### 3.2 User authentication and accounts
-**Status:** Not started
+**Status:** Complete
 **What:** User registration, login, and session management.
 **Why:** Required for personalized features (watchlists, alerts) and for gating premium content behind a paywall.
 **Implementation approach:** Use a service like Clerk, Auth0, or Supabase Auth to avoid building auth from scratch. Start simple — email/password registration with email verification.
@@ -108,6 +108,10 @@ Nice-to-have improvements that increase value but aren't critical for launch.
 
 ### 2.2 Sector tagging system
 **Completed:** May 2026
+
+### 3.2 User authentication and accounts
+**Completed:** May 2026
+**What was done:** Integrated Clerk for authentication. ClerkProvider wraps the React app in main.jsx. Sign-in and sign-up pages at /sign-in and /sign-up use Clerk's embedded components (outside the main Layout). Layout.jsx topbar shows a Sign In button for unauthenticated users and a UserButton avatar for authenticated users. Server-side: @clerk/express clerkMiddleware() added globally; server/lib/auth.js exports requireAuth middleware and getUser(req) helper for protecting future API routes. All existing bill browsing remains public — auth is the foundation for watchlists (3.3) and subscription gating (3.4).
 
 ### 3.1 Scheduled database sync
 **Completed:** May 2026

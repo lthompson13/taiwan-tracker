@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
 import TranslationBanner from './TranslationBanner';
 import './Layout.css';
 
@@ -12,6 +13,7 @@ const NAV_ITEMS = [
 ];
 
 function Layout() {
+  const navigate = useNavigate();
   const currentDate = new Date().toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
@@ -25,7 +27,28 @@ function Layout() {
           <span className="layout-topbar-title">Taiwan Legislative Tracker</span>
           <span className="layout-topbar-subtitle">Legislative Yuan monitoring</span>
         </div>
-        <div className="layout-topbar-right" />
+        <div className="layout-topbar-right">
+          <SignedOut>
+            <button
+              onClick={() => navigate('/sign-in')}
+              style={{
+                padding: '6px 16px',
+                background: 'transparent',
+                border: '1px solid rgba(255,255,255,0.35)',
+                borderRadius: 'var(--radius-sm)',
+                color: 'white',
+                fontSize: '0.825rem',
+                fontWeight: 500,
+                cursor: 'pointer',
+              }}
+            >
+              Sign in
+            </button>
+          </SignedOut>
+          <SignedIn>
+            <UserButton afterSignOutUrl="/" />
+          </SignedIn>
+        </div>
       </header>
 
       <div className="layout-body">

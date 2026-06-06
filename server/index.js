@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const { clerkMiddleware } = require('@clerk/express');
 const { initDb } = require('./lib/db');
 const { startScheduler, getStatus: getSchedulerStatus } = require('./lib/scheduler');
 
@@ -10,6 +11,7 @@ const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
+app.use(clerkMiddleware());
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', scheduler: getSchedulerStatus() });
