@@ -14,7 +14,7 @@
  *   });
  */
 
-const { requireAuth: clerkRequireAuth } = require('@clerk/express');
+const { requireAuth: clerkRequireAuth, getAuth } = require('@clerk/express');
 
 /**
  * Express middleware that rejects unauthenticated requests with 401.
@@ -29,7 +29,12 @@ const requireAuth = clerkRequireAuth();
  * @returns {string|null}
  */
 function getUser(req) {
-  return req.auth?.userId || null;
+  try {
+    const { userId } = getAuth(req);
+    return userId || null;
+  } catch {
+    return req.auth?.userId || null;
+  }
 }
 
 module.exports = { requireAuth, getUser };

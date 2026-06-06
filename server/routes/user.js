@@ -19,6 +19,14 @@ const VALID_PRIORITIES = ['high', 'medium', 'low'];
 // All routes require authentication
 router.use(requireAuth);
 
+// Hard guard: if requireAuth passes but userId is still null, return 401
+router.use((req, res, next) => {
+  if (!getUser(req)) {
+    return res.status(401).json({ error: 'Unauthorized — could not resolve user ID' });
+  }
+  next();
+});
+
 // ---------------------------------------------------------------------------
 // GET /api/user/bills — list all annotated bills for the current user
 // ---------------------------------------------------------------------------
