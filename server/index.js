@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const { initDb } = require('./lib/db');
+const { startScheduler, getStatus: getSchedulerStatus } = require('./lib/scheduler');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -11,7 +12,7 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok' });
+  res.json({ status: 'ok', scheduler: getSchedulerStatus() });
 });
 
 // Translation status — frontend uses this to decide whether to show a
@@ -40,6 +41,7 @@ app.get('*', (req, res) => {
 // Initialize database (runs migrations, verifies connection) then start server.
 // initDb() is safe to call even when DATABASE_URL is absent.
 initDb().then(() => {
+  startScheduler();
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
   });

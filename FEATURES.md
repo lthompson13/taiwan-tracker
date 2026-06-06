@@ -39,7 +39,7 @@ These features transform the project from a data browser into a product someone 
 
 These features enable the transition from free tool to paid product.
 ### 3.1 Scheduled database sync
-**Status:** Not started
+**Status:** Complete
 **What:** Automate the LY API sync so the bill database stays fresh without manual curl commands. The sync should run on a daily schedule, fetching new and updated bills for the current term and session.
 **Why:** The Bills page now queries the local database. If the database isn't refreshed regularly, users see stale data. A daily sync keeps the platform current without any manual intervention.
 **Implementation approach:** Railway supports cron jobs via its built-in scheduler (add a service with a cron schedule that calls POST /api/admin/sync). Alternatively, use an external scheduler like EasyCron or GitHub Actions on a schedule to hit the sync endpoint. The sync endpoint already exists and handles incremental updates (skips bills whose latestProgressDate hasn't changed).
@@ -108,6 +108,10 @@ Nice-to-have improvements that increase value but aren't critical for launch.
 
 ### 2.2 Sector tagging system
 **Completed:** May 2026
+
+### 3.1 Scheduled database sync
+**Completed:** May 2026
+**What was done:** Added server/lib/scheduler.js using node-cron. Runs syncBills([11], 200, null) daily at 2 AM Taiwan time (18:00 UTC). Skips bills whose latestProgressDate is unchanged so only genuinely new or updated bills hit the translation API. Scheduler starts automatically after initDb() in server/index.js. Status (isRunning, lastRunAt, lastRunResult) exposed on GET /api/health. Schedule and sync parameters overridable via SYNC_CRON, SYNC_TERM, SYNC_MAX_PAGES env vars.
 
 ### 2.4 Searchable legislative archive
 **Completed:** May 2026
