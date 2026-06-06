@@ -63,16 +63,16 @@ async function translateArchiveFields(bill) {
 }
 
 /**
- * Sync all bills for the given terms.
+ * Sync bills for the given terms (and optionally a specific session).
  * Returns { synced, skipped, errors } counts.
  *
  * @param {number[]} terms     e.g. [11] or [8, 9, 10, 11]
- * @param {number}   maxPages  max pages to fetch per term (default 150 = 3,000 bills).
- *                             The LY API returns 413 errors at very high page offsets,
- *                             so a cap also prevents runaway requests.
+ * @param {number}   maxPages  max pages to fetch per term/session (default 150 = 3,000 bills).
+ * @param {number|null} session  if provided, only sync this session number (e.g. 1–8).
+ *                               Recommended for large terms — keeps page counts manageable.
  * @param {function} [onProgress]  optional callback(message)
  */
-async function syncBills(terms = [11], maxPages = 150, onProgress = null) {
+async function syncBills(terms = [11], maxPages = 150, session = null, onProgress = null) {
   const db = getDb();
   if (!db) throw new Error('Database not configured');
 
@@ -86,10 +86,14 @@ async function syncBills(terms = [11], maxPages = 150, onProgress = null) {
   let totalErrors = 0;
 
   for (const term of terms) {
-    log(`Starting sync for term ${term}…`);
+    const label = session ? `term ${term} session ${session}` : `term ${term}`;
+    log(`Starting sync for ${label}…`);
+
+    const query = { '屆': String(term), page: 1, limit: PAGE_SIZE };
+    if (session) query['會期'] = String(session);
 
     // Fetch page 1 to get total count
-    const firstPage = await fetchFromLY('bills', { '屆': String(term), page: 1, limit: PAGE_SIZE });
+    const firstPage = await fetchFromLY('bills', query);
     if (firstPage.error) {
       log(`Term ${term}: API error — ${firstPage.message || 'unknown'}`);
       totalErrors++;
@@ -99,7 +103,7 @@ async function syncBills(terms = [11], maxPages = 150, onProgress = null) {
     const total = firstPage.total || 0;
     const totalPages = Math.ceil(total / PAGE_SIZE);
     const pagesToFetch = Math.min(totalPages, maxPages);
-    log(`Term ${term}: ${total} bills across ${totalPages} pages (fetching up to ${pagesToFetch})`);
+    log(`${label}: ${total} bills across ${totalPages} pages (fetching up to ${pagesToFetch})`);
 
     // Process first page
     const allRawBills = Array.isArray(firstPage.bills) ? firstPage.bills : [];
@@ -107,14 +111,16 @@ async function syncBills(terms = [11], maxPages = 150, onProgress = null) {
     // Fetch remaining pages — stop on 413 (LY API rejects very high offsets)
     for (let page = 2; page <= pagesToFetch; page++) {
       await sleep(PAGE_DELAY_MS);
-      const pageData = await fetchFromLY('bills', { '屆': String(term), page, limit: PAGE_SIZE });
+      const pageQuery = { '屆': String(term), page, limit: PAGE_SIZE };
+      if (session) pageQuery['會期'] = String(session);
+      const pageData = await fetchFromLY('bills', pageQuery);
       if (pageData.error) {
         const status = pageData.status || 0;
         if (status === 413 || status === 429) {
-          log(`Term ${term} page ${page}: API returned ${status} — stopping pagination`);
+          log(`${label} page ${page}: API returned ${status} — stopping pagination`);
           break;
         }
-        log(`Term ${term} page ${page}: API error (${status}) — skipping page`);
+        log(`${label} page ${page}: API error (${status}) — skipping page`);
         continue;
       }
       if (Array.isArray(pageData.bills)) {
@@ -123,10 +129,10 @@ async function syncBills(terms = [11], maxPages = 150, onProgress = null) {
     }
 
     if (pagesToFetch < totalPages) {
-      log(`Term ${term}: capped at ${pagesToFetch} pages — run sync again to fetch more`);
+      log(`${label}: capped at ${pagesToFetch} pages — run sync again to fetch more`);
     }
 
-    log(`Term ${term}: fetched ${allRawBills.length} bills, translating and upserting…`);
+    log(`${label}: fetched ${allRawBills.length} bills, translating and upserting…`);
 
     // Process bills in batches of 20 to avoid overwhelming the translate API
     const BATCH = 20;
@@ -197,7 +203,7 @@ async function syncBills(terms = [11], maxPages = 150, onProgress = null) {
       }));
     }
 
-    log(`Term ${term}: done — ${totalSynced} synced, ${totalSkipped} skipped, ${totalErrors} errors`);
+    log(`${label}: done — ${totalSynced} synced, ${totalSkipped} skipped, ${totalErrors} errors`);
   }
 
   return { synced: totalSynced, skipped: totalSkipped, errors: totalErrors };

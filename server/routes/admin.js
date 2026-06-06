@@ -157,10 +157,14 @@ router.post('/sync', async (req, res) => {
     ? req.body.maxPages
     : 150;
 
-  // Respond immediately — sync runs in background
-  res.json({ message: 'Sync started', terms: validTerms, maxPages });
+  const session = Number.isInteger(req.body.session) && req.body.session > 0
+    ? req.body.session
+    : null;
 
-  syncBills(validTerms, maxPages).then(({ synced, skipped, errors }) => {
+  // Respond immediately — sync runs in background
+  res.json({ message: 'Sync started', terms: validTerms, maxPages, session });
+
+  syncBills(validTerms, maxPages, session).then(({ synced, skipped, errors }) => {
     console.log(`[admin/sync] Complete — synced: ${synced}, skipped: ${skipped}, errors: ${errors}`);
   }).catch((err) => {
     console.error('[admin/sync] Failed:', err.message);
