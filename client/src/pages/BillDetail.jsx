@@ -56,7 +56,7 @@ const linkStyle = {
 function BillDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isSignedIn, getToken } = useAuth();
+  const { isSignedIn } = useAuth();
 
   const [bill, setBill] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -88,31 +88,36 @@ function BillDetail() {
   // Load existing annotations when signed in
   useEffect(() => {
     if (!isSignedIn || !id) return;
-    getToken().then((token) =>
-      fetch(`/api/user/bills/${encodeURIComponent(id)}`, {
-        headers: { Authorization: `Bearer ${token}` },
+    fetch(`/api/user/bills/${encodeURIComponent(id)}`, { credentials: 'include' })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data) {
+          setAnnotation(data);
+          setNoteInput(data.note || '');
+        }
       })
-    ).then((r) => r.json()).then((data) => {
-      if (data) {
-        setAnnotation(data);
-        setNoteInput(data.note || '');
-      }
-    }).catch(() => {});
-  }, [isSignedIn, id, getToken]);
+      .catch(() => {});
+  }, [isSignedIn, id]);
 
   const updateAnnotation = useCallback(async (patch) => {
     if (!isSignedIn) return;
-    const token = await getToken();
-    const res = await fetch(`/api/user/bills/${encodeURIComponent(id)}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify(patch),
-    });
-    if (res.ok) {
-      const updated = await res.json();
-      setAnnotation(updated);
+    try {
+      const res = await fetch(`/api/user/bills/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(patch),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setAnnotation(updated);
+      } else {
+        console.error('[annotation] save failed:', res.status, await res.text());
+      }
+    } catch (err) {
+      console.error('[annotation] save error:', err.message);
     }
-  }, [isSignedIn, id, getToken]);
+  }, [isSignedIn, id]);
 
   const handleStance = (stance) => {
     const newStance = annotation.stance === stance ? null : stance;

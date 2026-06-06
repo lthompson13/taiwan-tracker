@@ -37,7 +37,7 @@ function getStatusBadgeType(status) {
 
 function Watchlist() {
   const navigate = useNavigate();
-  const { isSignedIn, getToken } = useAuth();
+  const { isSignedIn } = useAuth();
 
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -47,13 +47,12 @@ function Watchlist() {
   useEffect(() => {
     if (!isSignedIn) { setLoading(false); return; }
 
-    getToken().then((token) =>
-      fetch('/api/user/bills', { headers: { Authorization: `Bearer ${token}` } })
-    ).then((r) => r.json()).then((data) => {
-      setItems(Array.isArray(data) ? data : []);
-    }).catch(() => setItems([]))
+    fetch('/api/user/bills', { credentials: 'include' })
+      .then((r) => r.json())
+      .then((data) => setItems(Array.isArray(data) ? data : []))
+      .catch(() => setItems([]))
       .finally(() => setLoading(false));
-  }, [isSignedIn, getToken]);
+  }, [isSignedIn]);
 
   if (!isSignedIn) {
     return (
