@@ -66,10 +66,13 @@ async function translateArchiveFields(bill) {
  * Sync all bills for the given terms.
  * Returns { synced, skipped, errors } counts.
  *
- * @param {number[]} terms  e.g. [11] or [8, 9, 10, 11]
+ * @param {number[]} terms     e.g. [11] or [8, 9, 10, 11]
+ * @param {number}   maxPages  max pages to fetch per term (default 150 = 3,000 bills).
+ *                             The LY API returns 413 errors at very high page offsets,
+ *                             so a cap also prevents runaway requests.
  * @param {function} [onProgress]  optional callback(message)
  */
-async function syncBills(terms = [11], onProgress = null) {
+async function syncBills(terms = [11], maxPages = 150, onProgress = null) {
   const db = getDb();
   if (!db) throw new Error('Database not configured');
 
@@ -95,22 +98,32 @@ async function syncBills(terms = [11], onProgress = null) {
 
     const total = firstPage.total || 0;
     const totalPages = Math.ceil(total / PAGE_SIZE);
-    log(`Term ${term}: ${total} bills across ${totalPages} pages`);
+    const pagesToFetch = Math.min(totalPages, maxPages);
+    log(`Term ${term}: ${total} bills across ${totalPages} pages (fetching up to ${pagesToFetch})`);
 
     // Process first page
     const allRawBills = Array.isArray(firstPage.bills) ? firstPage.bills : [];
 
-    // Fetch remaining pages
-    for (let page = 2; page <= totalPages; page++) {
+    // Fetch remaining pages — stop on 413 (LY API rejects very high offsets)
+    for (let page = 2; page <= pagesToFetch; page++) {
       await sleep(PAGE_DELAY_MS);
       const pageData = await fetchFromLY('bills', { '屆': String(term), page, limit: PAGE_SIZE });
       if (pageData.error) {
-        log(`Term ${term} page ${page}: API error — ${pageData.message || 'unknown'}`);
+        const status = pageData.status || 0;
+        if (status === 413 || status === 429) {
+          log(`Term ${term} page ${page}: API returned ${status} — stopping pagination`);
+          break;
+        }
+        log(`Term ${term} page ${page}: API error (${status}) — skipping page`);
         continue;
       }
       if (Array.isArray(pageData.bills)) {
         allRawBills.push(...pageData.bills);
       }
+    }
+
+    if (pagesToFetch < totalPages) {
+      log(`Term ${term}: capped at ${pagesToFetch} pages — run sync again to fetch more`);
     }
 
     log(`Term ${term}: fetched ${allRawBills.length} bills, translating and upserting…`);

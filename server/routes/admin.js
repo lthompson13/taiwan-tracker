@@ -153,10 +153,14 @@ router.post('/sync', async (req, res) => {
     return res.status(400).json({ error: 'Provide at least one valid term number in "terms"' });
   }
 
-  // Respond immediately — sync runs in background
-  res.json({ message: 'Sync started', terms: validTerms });
+  const maxPages = Number.isInteger(req.body.maxPages) && req.body.maxPages > 0
+    ? req.body.maxPages
+    : 150;
 
-  syncBills(validTerms).then(({ synced, skipped, errors }) => {
+  // Respond immediately — sync runs in background
+  res.json({ message: 'Sync started', terms: validTerms, maxPages });
+
+  syncBills(validTerms, maxPages).then(({ synced, skipped, errors }) => {
     console.log(`[admin/sync] Complete — synced: ${synced}, skipped: ${skipped}, errors: ${errors}`);
   }).catch((err) => {
     console.error('[admin/sync] Failed:', err.message);
