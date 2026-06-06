@@ -8,6 +8,7 @@ import BillDetail from './pages/BillDetail';
 import Interpellations from './pages/Interpellations';
 import Committees from './pages/Committees';
 import Activity from './pages/Activity';
+import Watchlist from './pages/Watchlist';
 import SignInPage from './pages/SignIn';
 import SignUpPage from './pages/SignUp';
 
@@ -29,6 +30,7 @@ function App() {
           <Route path="interpellations" element={<Interpellations />} />
           <Route path="committees" element={<Committees />} />
           <Route path="activity" element={<Activity />} />
+          <Route path="watchlist" element={<Watchlist />} />
         </Route>
       </Routes>
     </BrowserRouter>

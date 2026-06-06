@@ -41,7 +41,9 @@
       "Bash(python3:*)",
       "WebFetch(domain:elasticbeanstalk-us-east-1-679966165097.s3.amazonaws.com)",
       "Bash(aws elasticbeanstalk update-environment:*)",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "Bash(git rm *)",
+      "WebFetch(domain:taiwan-tracker-production-1118.up.railway.app)"
     ]
   }
 }

@@ -51,7 +51,7 @@ These features enable the transition from free tool to paid product.
 **Implementation approach:** Use a service like Clerk, Auth0, or Supabase Auth to avoid building auth from scratch. Start simple — email/password registration with email verification.
 
 ### 3.3 Bill watchlist and alerts
-**Status:** Not started
+**Status:** Complete
 **What:** Authenticated users can "watch" specific bills or sector tags and receive email notifications when watched items have status changes (bill advances to committee, gets amended, goes to floor vote, passes).
 **Why:** Real-time alerting is one of the highest-value features for professional users. Knowing today that a semiconductor export control bill passed committee is actionable intelligence. Knowing about it three days later is not.
 **Implementation approach:** Requires database (2.5) and auth (3.2). Build a background job that periodically checks watched bills against the LY API for status changes and sends notification emails.
@@ -108,6 +108,10 @@ Nice-to-have improvements that increase value but aren't critical for launch.
 
 ### 2.2 Sector tagging system
 **Completed:** May 2026
+
+### 3.3 Bill watchlist and alerts
+**Completed:** May 2026
+**What was done:** Added UserBill table (migration 20260530000000_add_user_bills) storing per-user bill annotations keyed by Clerk userId + billId. Fields: watching (bool), stance (support/oppose/monitor), priority (high/medium/low), note (text). server/routes/user.js provides authenticated CRUD at /api/user/bills — all routes require Clerk auth via requireAuth middleware. BillDetail page gained a tracking panel with 👍/👎/👁 stance toggles, High/Med/Low priority buttons, and a note textarea — stance and priority update instantly on click; note saves on button click. Unauthenticated users see a Sign In prompt. New Watchlist page at /watchlist lists all annotated bills with stance/priority filters; added to sidebar nav. Email alerts deferred until email infrastructure is in place (4.7).
 
 ### 3.2 User authentication and accounts
 **Completed:** May 2026
