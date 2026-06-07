@@ -10,7 +10,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { requireAuth, getUser } = require('../lib/auth');
+const { requireAuth, getUser, isSubscriber } = require('../lib/auth');
 const { getDb } = require('../lib/db');
 
 const VALID_STANCES = ['support', 'oppose', 'monitor'];
@@ -23,6 +23,14 @@ router.use(requireAuth);
 router.use((req, res, next) => {
   if (!getUser(req)) {
     return res.status(401).json({ error: 'Unauthorized — could not resolve user ID' });
+  }
+  next();
+});
+
+// Subscription guard: annotations are a Pro feature
+router.use(async (req, res, next) => {
+  if (!await isSubscriber(getUser(req))) {
+    return res.status(403).json({ error: 'Pro subscription required' });
   }
   next();
 });

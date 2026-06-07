@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSubscription } from '../hooks/useSubscription';
 import Panel from '../components/Panel';
 import Loader from '../components/Loader';
 import StatusBadge from '../components/StatusBadge';
@@ -50,6 +51,7 @@ const recentDateStyle = {
 
 function Dashboard() {
   const navigate = useNavigate();
+  const { isSubscribed } = useSubscription();
   const [stats, setStats] = useState({
     legislators: null, bills: null, committees: null, interpellations: null,
   });
@@ -157,7 +159,7 @@ function Dashboard() {
                       </span>
                     )}
                   </div>
-                  {bill.summary && (
+                  {bill.summary && isSubscribed && (
                     <p style={{
                       marginTop: '8px',
                       fontSize: '0.825rem',

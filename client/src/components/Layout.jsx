@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
+import { useSubscription } from '../hooks/useSubscription';
 import TranslationBanner from './TranslationBanner';
 import './Layout.css';
 
@@ -15,6 +16,7 @@ const NAV_ITEMS = [
 
 function Layout() {
   const navigate = useNavigate();
+  const { isSubscribed, isLoaded } = useSubscription();
   const currentDate = new Date().toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
@@ -72,6 +74,29 @@ function Layout() {
               ))}
             </ul>
           </nav>
+          {isLoaded && !isSubscribed && (
+            <div style={{ padding: '12px 12px 8px' }}>
+              <button
+                onClick={() => navigate('/upgrade')}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '8px 12px',
+                  background: 'var(--teal)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                  letterSpacing: '0.02em',
+                }}
+              >
+                Upgrade to Pro →
+              </button>
+            </div>
+          )}
         </aside>
 
         <main className="layout-main">

@@ -53,7 +53,10 @@ taiwan_project/
 │   │   ├── bills.js          # /api/bills, /api/bills/:id (server-side filtering)
 │   │   ├── committees.js     # /api/committees
 │   │   ├── interpellations.js # /api/interpellations
-│   │   └── admin.js           # /api/admin/* — summaries + subscriber CRUD (requires ADMIN_SECRET)
+│   │   ├── admin.js           # /api/admin/* — summaries + subscriber CRUD (requires ADMIN_SECRET)
+│   │   ├── archive.js         # /api/archive — full-text + filtered search against local Bill DB
+│   │   ├── user.js            # /api/user/bills — per-user bill annotations (requires Clerk auth)
+│   │   └── stripe.js          # /api/stripe/* — Checkout, webhook, portal, status
 │   ├── lib/
 │   │   ├── lyApi.js          # LY API wrapper — all upstream HTTP calls go through here
 │   │   ├── translate.js      # Google Translate wrapper; two-level cache: L1 in-memory
@@ -77,15 +80,20 @@ taiwan_project/
     └── src/
         ├── index.css         # Global design tokens (CSS variables) + base styles
         ├── App.jsx           # Router setup
+        ├── hooks/
+        │   └── useSubscription.js     # Reads subscriptionStatus from Clerk publicMetadata
         ├── pages/
         │   ├── Dashboard.jsx          # Stats overview + recent bills
         │   ├── Legislators.jsx        # Paginated list with server-side party filtering
         │   ├── LegislatorDetail.jsx   # Full profile page
-        │   ├── Bills.jsx              # Paginated list with server-side term/session/category/status filtering
-        │   ├── BillDetail.jsx         # Full bill page with attachments
+        │   ├── Bills.jsx              # Paginated list with server-side term/session/category/status filtering; archive search backed by local DB
+        │   ├── BillDetail.jsx         # Full bill page; Pro-gated annotation panel + "Why It Matters" summary
         │   ├── Committees.jsx         # Committee list with expandable detail
         │   ├── Interpellations.jsx    # Inquiry log, paginated, expandable, hash-deep-linkable
-        │   └── Activity.jsx           # Merged chronological feed
+        │   ├── Activity.jsx           # Merged chronological feed
+        │   ├── Watchlist.jsx          # Pro-gated — user's annotated bills with stance/priority filters
+        │   ├── Upgrade.jsx            # Pricing page — free vs. Pro comparison, Stripe Checkout trigger
+        │   └── UpgradeSuccess.jsx     # Post-checkout confirmation; polls Clerk until subscription is active
         └── components/
             ├── Layout.jsx           # App shell, navigation
             ├── Panel.jsx            # Styled container
@@ -101,7 +109,7 @@ taiwan_project/
 
 | Method | Endpoint | Query Params | Description |
 |--------|----------|-------------|-------------|
-| GET | /api/health | | Liveness check |
+| GET | /api/health | | Liveness check + scheduler status |
 | GET | /api/translation-status | | Translation health: { enabled, healthy, errorCount, lastError, lastSuccessAt } |
 | GET | /api/legislators | page, party, term, district, caucus | List legislators (server-side filtered) |
 | GET | /api/legislators/:id | | Single legislator profile |
@@ -109,6 +117,16 @@ taiwan_project/
 | GET | /api/bills/:id | | Single bill detail |
 | GET | /api/committees | | List all standing committees |
 | GET | /api/interpellations | page | List interpellations (paginated) |
+| GET | /api/archive | q, sector, term, status, page | Full-text search against local Bill DB |
+| GET | /api/user/bills | | All annotated bills for signed-in user (requires Clerk auth) |
+| GET | /api/user/bills/:billId | | Single bill annotation (requires Clerk auth) |
+| PUT | /api/user/bills/:billId | | Upsert bill annotation (requires Clerk auth) |
+| POST | /api/stripe/checkout | | Create Stripe Checkout session (requires Clerk auth) |
+| POST | /api/stripe/webhook | | Stripe webhook — updates Clerk metadata on subscription events |
+| GET | /api/stripe/portal | | Create Stripe Customer Portal session (requires Clerk auth) |
+| GET | /api/stripe/status | | Current subscription status for signed-in user (requires Clerk auth) |
+| POST | /api/admin/sync | | Trigger bill sync for specified terms (requires ADMIN_SECRET) |
+| GET | /api/admin/sync/status | | Archive count + last sync time |
 
 Filter values are mapped from English to Chinese in server/lib/filterMaps.js before being forwarded to the LY API. For example, party=KMT is translated to 黨籍=中國國民黨.
 
@@ -165,10 +183,14 @@ User browser
 | Variable | Required | Where Set | Purpose |
 |----------|----------|-----------|---------|
 | GOOGLE_TRANSLATE_API_KEY | Yes (for translation) | Railway dashboard | Google Cloud Translation API key |
-| DATABASE_URL | No (but strongly recommended) | Railway dashboard | PostgreSQL connection string — enables summaries DB, subscriber table, future auth |
+| DATABASE_URL | No (but strongly recommended) | Railway dashboard | PostgreSQL connection string — enables summaries DB, subscriber table, user annotations |
 | ADMIN_SECRET | No (needed to use admin API) | Railway dashboard | Bearer token protecting /api/admin/* endpoints |
 | UPSTASH_REDIS_REST_URL | No (but strongly recommended) | Railway dashboard | Upstash Redis REST endpoint — enables persistent translation cache |
 | UPSTASH_REDIS_REST_TOKEN | No (but strongly recommended) | Railway dashboard | Upstash Redis REST token |
+| STRIPE_SECRET_KEY | No (needed for payments) | Railway dashboard | Stripe secret key — enables subscription checkout |
+| STRIPE_PRICE_ID | No (needed for payments) | Railway dashboard | Stripe Price ID for the Pro monthly plan |
+| STRIPE_WEBHOOK_SECRET | No (needed for payments) | Railway dashboard | Stripe webhook signing secret — verifies webhook authenticity |
+| CLIENT_URL | No (defaults to Railway prod URL) | Railway dashboard | Base URL for Stripe success/cancel redirect URLs |
 | PORT | No (auto-assigned) | Railway (automatic) | Server port |
 
 See .env.example in the project root for the canonical list.
@@ -176,6 +198,6 @@ See .env.example in the project root for the canonical list.
 ## Current Limitations
 
 1. ~~**No database**~~ — resolved in 2.5: PostgreSQL via Prisma, degrades gracefully if DATABASE_URL absent
-2. **No authentication** — completely public, no user accounts
+2. ~~**No authentication**~~ — resolved in 3.2: Clerk authentication; resolved in 3.4: Stripe subscription gating
 3. ~~**In-memory translation cache is volatile**~~ — resolved in 1.5: two-level cache with Upstash Redis L2 persists across redeploys
 4. ~~**No term/session selectors on Bills page**~~ — resolved in 2.1: Term and Session dropdowns added to the Bills page, defaulting to Term 11 / all sessions

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth, SignInButton } from '@clerk/clerk-react';
+import { useSubscription } from '../hooks/useSubscription';
 import Panel from '../components/Panel';
 import StatusBadge from '../components/StatusBadge';
 import Loader from '../components/Loader';
@@ -57,6 +58,7 @@ function BillDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isSignedIn } = useAuth();
+  const { isSubscribed } = useSubscription();
 
   const [bill, setBill] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -210,6 +212,37 @@ function BillDetail() {
             </button>
           </SignInButton>
         </div>
+      ) : !isSubscribed ? (
+        <div style={{
+          border: '1px solid var(--border-default)',
+          borderRadius: 'var(--radius-md)',
+          padding: '14px 20px',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          background: 'var(--bg-subtle)',
+        }}>
+          <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+            Pro subscribers can track this bill, add notes, and set priority
+          </span>
+          <button
+            onClick={() => navigate('/upgrade')}
+            style={{
+              padding: '6px 14px',
+              background: 'var(--navy)',
+              color: 'white',
+              border: 'none',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '0.825rem',
+              fontWeight: 500,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            Upgrade to Pro →
+          </button>
+        </div>
       ) : (
         <div style={{
           border: '1px solid var(--border-default)',
@@ -342,7 +375,37 @@ function BillDetail() {
         </div>
       )}
 
-      {bill.summary && (
+      {bill.summary && !isSubscribed && (
+        <div style={{
+          background: 'var(--navy-light)',
+          border: '1px solid var(--navy)',
+          borderLeft: '4px solid var(--navy)',
+          borderRadius: 'var(--radius-md)',
+          padding: '16px 20px',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '16px',
+        }}>
+          <div>
+            <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--navy)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px' }}>
+              Why It Matters — Pro
+            </div>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: 0 }}>
+              Editorial analysis of this bill's business implications is available to Pro subscribers.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate('/upgrade')}
+            style={{ padding: '6px 14px', background: 'var(--navy)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '0.825rem', fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            Upgrade →
+          </button>
+        </div>
+      )}
+
+      {bill.summary && isSubscribed && (
         <div style={{
           background: 'var(--navy-light)',
           border: '1px solid var(--navy)',

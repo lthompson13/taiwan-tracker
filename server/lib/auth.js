@@ -14,7 +14,7 @@
  *   });
  */
 
-const { requireAuth: clerkRequireAuth, getAuth } = require('@clerk/express');
+const { requireAuth: clerkRequireAuth, getAuth, clerkClient } = require('@clerk/express');
 
 /**
  * Express middleware that rejects unauthenticated requests with 401.
@@ -37,4 +37,21 @@ function getUser(req) {
   }
 }
 
-module.exports = { requireAuth, getUser };
+/**
+ * Returns true if the given Clerk userId has an active Pro subscription.
+ * Safe to call with null (returns false without hitting Clerk).
+ *
+ * @param {string|null} userId
+ * @returns {Promise<boolean>}
+ */
+async function isSubscriber(userId) {
+  if (!userId) return false;
+  try {
+    const user = await clerkClient.users.getUser(userId);
+    return user.publicMetadata?.subscriptionStatus === 'active';
+  } catch {
+    return false;
+  }
+}
+
+module.exports = { requireAuth, getUser, isSubscriber };

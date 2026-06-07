@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@clerk/clerk-react';
+import { useSubscription } from '../hooks/useSubscription';
 import Panel from '../components/Panel';
 import StatusBadge from '../components/StatusBadge';
 import Loader from '../components/Loader';
@@ -38,6 +39,7 @@ function getStatusBadgeType(status) {
 function Watchlist() {
   const navigate = useNavigate();
   const { isSignedIn } = useAuth();
+  const { isSubscribed } = useSubscription();
 
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -63,6 +65,22 @@ function Watchlist() {
           style={{ padding: '8px 20px', background: 'var(--navy)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 500 }}
         >
           Sign in
+        </button>
+      </div>
+    );
+  }
+
+  if (!isSubscribed) {
+    return (
+      <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)' }}>
+        <div style={{ fontSize: '2rem', marginBottom: '12px' }}>👁</div>
+        <p style={{ fontSize: '0.9rem', marginBottom: '6px' }}>Watchlists are a Pro feature.</p>
+        <p style={{ fontSize: '0.825rem', marginBottom: '20px' }}>Track bills, set stance, priority, and notes with a Pro subscription.</p>
+        <button
+          onClick={() => navigate('/upgrade')}
+          style={{ padding: '8px 20px', background: 'var(--navy)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 500 }}
+        >
+          Upgrade to Pro →
         </button>
       </div>
     );

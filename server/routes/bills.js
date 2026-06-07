@@ -5,6 +5,7 @@ const { translateBill } = require('../lib/translateFields');
 const { getStatus: getTranslationStatus } = require('../lib/translate');
 const { tagBill } = require('../lib/sectorTags');
 const { getSummary } = require('../lib/summaries');
+const { getUser, isSubscriber } = require('../lib/auth');
 const {
   BILL_CATEGORY_MAP,
   BILL_STATUS_MAP,
@@ -87,10 +88,11 @@ router.get('/', async (req, res) => {
 
   const bills = Array.isArray(data.bills) ? data.bills.map(mapBill) : [];
 
-  // Tag and attach editorial summary before translation
+  const subscribed = await isSubscriber(getUser(req));
+
   await Promise.all(bills.map(async (bill) => {
     bill.sectors = tagBill(bill);
-    bill.summary = await getSummary(bill.billId);
+    bill.summary = subscribed ? await getSummary(bill.billId) : undefined;
   }));
 
   const translated = await Promise.all(bills.map(translateBill));
@@ -126,7 +128,10 @@ router.get('/:id', async (req, res) => {
 
   const bill = bills[0];
   bill.sectors = tagBill(bill);
-  bill.summary = await getSummary(bill.billId);
+
+  const subscribed = await isSubscriber(getUser(req));
+  bill.summary = subscribed ? await getSummary(bill.billId) : undefined;
+
   res.json(await translateBill(bill));
 });
 

@@ -10,8 +10,16 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors());
+
+// Stripe webhook needs the raw body for signature verification — must be
+// registered BEFORE express.json() parses the body.
+app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
+
 app.use(express.json());
-app.use(clerkMiddleware());
+app.use(clerkMiddleware({
+  publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
+  secretKey: process.env.CLERK_SECRET_KEY,
+}));
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', scheduler: getSchedulerStatus() });
@@ -31,6 +39,7 @@ app.use('/api/interpellations', require('./routes/interpellations'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/archive', require('./routes/archive'));
 app.use('/api/user', require('./routes/user'));
+app.use('/api/stripe', require('./routes/stripe'));
 
 // Serve static files from the React client build
 const clientBuildPath = path.join(__dirname, '..', 'client', 'dist');

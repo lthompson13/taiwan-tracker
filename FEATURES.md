@@ -28,10 +28,7 @@ These features transform the project from a data browser into a product someone 
 **Status:** Complete
 
 ### 2.4 Searchable legislative archive
-**Status:** Complete
-**What:** A full-text search across all historical bills, with filters by sector, date range, committee, proposer, and status.
-**Why:** The archive grows in value over time. An analyst doing due diligence on a Taiwanese company wants to search for all legislation related to that sector over the past two years. This is a feature that creates a compounding moat — every week of operation makes the archive more valuable.
-**Implementation approach:** Requires the database (2.5). Periodically sync bills from the LY API into local storage. Add a search endpoint that queries the local database rather than the LY API, enabling full-text search with filters that aren't available through the upstream API.
+**Status:** Complete — integrated into Bills page (no separate Archive route)
 
 ---
 
@@ -57,10 +54,7 @@ These features enable the transition from free tool to paid product.
 **Implementation approach:** Requires database (2.5) and auth (3.2). Build a background job that periodically checks watched bills against the LY API for status changes and sends notification emails.
 
 ### 3.4 Subscription tiers and payment
-**Status:** Not started
-**What:** Free tier (weekly digest only) and paid tier (full dashboard access, alerts, archive search, editorial summaries).
-**Why:** Revenue.
-**Implementation approach:** Use Stripe for payment processing. Keep it simple — one paid tier initially, monthly billing. Don't over-engineer pricing before you have customers.
+**Status:** Complete
 
 ---
 
@@ -109,6 +103,10 @@ Nice-to-have improvements that increase value but aren't critical for launch.
 ### 2.2 Sector tagging system
 **Completed:** May 2026
 
+### 3.4 Subscription tiers and payment
+**Completed:** June 2026
+**What was done:** Stripe integration for a single Pro tier at $99/month. server/routes/stripe.js handles Checkout session creation, webhook events (checkout.session.completed, customer.subscription.updated/deleted, invoice.payment_failed), Customer Portal sessions, and a /api/stripe/status endpoint. Webhook writes subscriptionStatus / stripeCustomerId / stripeSubscriptionId to Clerk publicMetadata so subscription state is available server-side and client-side without a separate DB table. client/src/hooks/useSubscription.js reads Clerk publicMetadata for reactive subscription state. Upgrade page at /upgrade with free vs. Pro feature comparison and Stripe Checkout trigger; UpgradeSuccess page polls Clerk metadata until status flips to active. "Upgrade to Pro" CTA added to sidebar for non-subscribers. Pro-gated content: "Why It Matters" summaries (BillDetail + Dashboard), bill annotation panel (BillDetail), Watchlist page. Server-side enforcement: bills routes strip summary field for non-subscribers; user annotation routes return 403 for non-subscribers. To grant free access to any user (beta testers, your own account), set publicMetadata.subscriptionStatus = "active" directly in the Clerk dashboard.
+
 ### 3.3 Bill watchlist and alerts
 **Completed:** May 2026
 **What was done:** Added UserBill table (migration 20260530000000_add_user_bills) storing per-user bill annotations keyed by Clerk userId + billId. Fields: watching (bool), stance (support/oppose/monitor), priority (high/medium/low), note (text). server/routes/user.js provides authenticated CRUD at /api/user/bills — all routes require Clerk auth via requireAuth middleware. BillDetail page gained a tracking panel with 👍/👎/👁 stance toggles, High/Med/Low priority buttons, and a note textarea — stance and priority update instantly on click; note saves on button click. Unauthenticated users see a Sign In prompt. New Watchlist page at /watchlist lists all annotated bills with stance/priority filters; added to sidebar nav. Email alerts deferred until email infrastructure is in place (4.7).
@@ -123,7 +121,7 @@ Nice-to-have improvements that increase value but aren't critical for launch.
 
 ### 2.4 Searchable legislative archive
 **Completed:** May 2026
-**What was done:** Added Bill table to Prisma schema (migration 20260529000000_add_bills) with indices on term/session, status, and date. server/lib/billSync.js fetches all pages for given terms from the LY API, tags sectors, translates fields, and upserts into the database — skipping bills whose latestProgressDate is unchanged to avoid redundant translation. server/routes/archive.js provides GET /api/archive with free-text search (ILIKE on English + Chinese bill name and proposer) plus sector/term/status filters. POST /api/admin/sync triggers a sync for specified terms (fire-and-forget); GET /api/admin/sync/status returns archive count and last sync time. New Archive page at /archive with search input, three filter dropdowns, paginated results showing sector/status badges, and link to bill detail. Added Archive to sidebar navigation.
+**What was done:** Added Bill table to Prisma schema (migration 20260529000000_add_bills) with indices on term/session, status, and date. server/lib/billSync.js fetches all pages for given terms from the LY API, tags sectors, translates fields, and upserts into the database — skipping bills whose latestProgressDate is unchanged to avoid redundant translation. server/routes/archive.js provides GET /api/archive with free-text search (ILIKE on English + Chinese bill name and proposer) plus sector/term/status filters. POST /api/admin/sync triggers a sync for specified terms (fire-and-forget); GET /api/admin/sync/status returns archive count and last sync time. Archive search was integrated directly into the Bills page rather than built as a separate route; the LY API serves as the live query layer with the local DB backing full-text search in the background.
 
 ### 2.5 Add a database
 **Completed:** May 2026

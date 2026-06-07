@@ -9,6 +9,8 @@ import Interpellations from './pages/Interpellations';
 import Committees from './pages/Committees';
 import Activity from './pages/Activity';
 import Watchlist from './pages/Watchlist';
+import Upgrade from './pages/Upgrade';
+import UpgradeSuccess from './pages/UpgradeSuccess';
 import SignInPage from './pages/SignIn';
 import SignUpPage from './pages/SignUp';
 
@@ -19,6 +21,9 @@ function App() {
         {/* Auth pages — outside main layout (no sidebar) */}
         <Route path="/sign-in/*" element={<SignInPage />} />
         <Route path="/sign-up/*" element={<SignUpPage />} />
+
+        {/* Full-page post-checkout — outside main layout */}
+        <Route path="/upgrade/success" element={<UpgradeSuccess />} />
 
         {/* Main app */}
         <Route path="/" element={<Layout />}>
@@ -31,6 +36,7 @@ function App() {
           <Route path="committees" element={<Committees />} />
           <Route path="activity" element={<Activity />} />
           <Route path="watchlist" element={<Watchlist />} />
+          <Route path="upgrade" element={<Upgrade />} />
         </Route>
       </Routes>
     </BrowserRouter>
