@@ -40,6 +40,7 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/archive', require('./routes/archive'));
 app.use('/api/user', require('./routes/user'));
 app.use('/api/stripe', require('./routes/stripe'));
+app.use('/api/meets',  require('./routes/meets'));
 
 // Serve static files from the React client build
 const clientBuildPath = path.join(__dirname, '..', 'client', 'dist');

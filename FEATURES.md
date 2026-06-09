@@ -58,17 +58,30 @@ These features enable the transition from free tool to paid product.
 
 ---
 
+## PRE-LAUNCH — Production Readiness
+
+Must be done before accepting real paying customers.
+
+### PL.1 Switch to production Clerk and Stripe credentials
+**Status:** Not started
+**What:** Replace all sandbox/test credentials with live production keys.
+**Steps:**
+1. In Clerk dashboard, create a **Production instance** (separate from the current Development instance). Copy the production `pk_live_` and `sk_live_` keys.
+2. Update Railway env vars: `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, and `VITE_CLERK_PUBLISHABLE_KEY` (the frontend build var) with production values.
+3. In Stripe, switch to **Live mode** → get live `sk_live_` secret key and create a new `price_live_` for the Pro plan.
+4. Create a new Stripe webhook endpoint pointing to the production Railway URL, get the new `whsec_` signing secret.
+5. Update Railway env vars: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_WEBHOOK_SECRET` with live values.
+6. Redeploy and test the full signup + subscription flow with a real card.
+**Note:** Until this is done, all user accounts and subscriptions are in test/sandbox mode and will not carry over to production.
+
+---
+
 ## PRIORITY 4 — Enhancement Features
 
 Nice-to-have improvements that increase value but aren't critical for launch.
 
-### 4.1 Legislator relationship mapping
-**What:** Visualize connections between legislators — co-sponsorship patterns, committee overlaps, party faction alignment. Show which legislators tend to collaborate and which are adversaries.
-**Why:** Helps analysts understand the political dynamics behind legislation, not just the legislation itself.
-
 ### 4.2 Committee hearing tracker
-**What:** Track upcoming committee meetings and hearings, with calendar integration and preview of agenda items.
-**Why:** Forward-looking intelligence — knowing what will be discussed before it happens.
+**Status:** Complete
 
 ### 4.3 Cross-strait legislation flag
 **What:** Automatic flagging of any legislation that touches cross-strait relations, mainland China policy, or has national security implications.
@@ -91,7 +104,17 @@ Nice-to-have improvements that increase value but aren't critical for launch.
 **Why:** Lower-friction consumption for subscribers and a marketing/conversion tool for the paid tier. Moved here from Priority 2 — build the product first, then use the digest to market it.
 **Implementation approach:** HTML email template, subscriber management via the database (Subscriber table already exists from 2.5), send endpoint, and a simple admin interface to compose and trigger sends. Use Resend for email delivery.
 
-### 4.8 Sync earlier legislative terms
+---
+
+## PRIORITY 5 — Post-Release Optional Features
+
+Lower-priority enhancements to consider after the product is live and generating revenue.
+
+### 5.1 Legislator relationship mapping
+**What:** Visualize connections between legislators — co-sponsorship patterns, committee overlaps, party faction alignment. Show which legislators tend to collaborate and which are adversaries.
+**Why:** Helps analysts understand the political dynamics behind legislation, not just the legislation itself.
+
+### 5.2 Sync earlier legislative terms
 **What:** Run the bill sync for terms 8, 9, and 10 to build out the full historical archive going back to 2012.
 **Why:** The archive compounds in value over time. Analysts doing due diligence want multi-year legislative history, not just the current term.
 **Implementation approach:** Run the existing sync command once per term/session combination (same as term 11). No code changes needed — the sync infrastructure already supports any term. Do this when Google Translate budget allows, as earlier terms represent significant new translation volume.
@@ -102,6 +125,10 @@ Nice-to-have improvements that increase value but aren't critical for launch.
 
 ### 2.2 Sector tagging system
 **Completed:** May 2026
+
+### 4.2 Committee hearing tracker
+**Completed:** June 2026
+**What was done:** New /hearings page backed by the LY API v2 /meets endpoint. server/routes/meets.js maps the raw nested meeting structure (dates, session slots, committee names, agenda, location, convener, PPG URL, attachments, video links) to clean English-keyed objects. translateMeet added to translateFields.js handles title, agenda, location, convener, committee names, and attachment titles in a single batch. Client page defaults to current term/session (11/5), with term/session dropdowns and a committee filter that populates dynamically from loaded data. Each meeting row shows date(s), time, committee badge, title, location, agenda excerpt, and links to the official LY page, video recording, and PDF attachments. Upcoming meetings (date >= today) are highlighted with a teal UPCOMING badge; past meetings are muted.
 
 ### 3.4 Subscription tiers and payment
 **Completed:** June 2026

@@ -183,9 +183,53 @@ async function translateInterpellation(obj) {
   return obj;
 }
 
+/**
+ * Translate all Chinese-value fields on a committee meeting object.
+ */
+async function translateMeet(obj) {
+  const committeeNames = Array.isArray(obj.committeeNames) ? obj.committeeNames : [];
+  const attachments = Array.isArray(obj.attachments) ? obj.attachments : [];
+
+  const fields = [
+    obj.title,
+    obj.agenda,
+    obj.location,
+    obj.convener,
+    obj.meetingType,
+  ];
+
+  const allTexts = [
+    ...fields,
+    ...committeeNames,
+    ...attachments.map((a) => a.title || ''),
+  ];
+
+  const translated = await translateBatch(allTexts);
+
+  let idx = 0;
+  obj.title    = translated[idx++];
+  obj.agenda   = translated[idx++];
+  obj.location = translated[idx++];
+  obj.convener = translated[idx++];
+  obj.meetingType = translated[idx++];
+
+  if (committeeNames.length > 0) {
+    obj.committeeNames = committeeNames.map((_, i) => translated[idx + i]);
+    idx += committeeNames.length;
+  }
+
+  if (attachments.length > 0) {
+    obj.attachments = attachments.map((a, i) => ({ ...a, title: translated[idx + i] }));
+    idx += attachments.length;
+  }
+
+  return obj;
+}
+
 module.exports = {
   translateLegislator,
   translateBill,
   translateCommittee,
   translateInterpellation,
+  translateMeet,
 };

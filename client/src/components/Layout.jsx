@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { to: '/interpellations', label: 'Interpellations' },
   { to: '/committees', label: 'Committees' },
   { to: '/activity', label: 'Activity' },
+  { to: '/hearings',  label: 'Hearings' },
   { to: '/watchlist', label: 'My Watchlist' },
 ];
 
