@@ -117,19 +117,18 @@ For "searchTerms": 2–3 short English phrases a journalist would search to find
     messages: [{ role: 'user', content: prompt }],
   });
 
-  const raw = message.content?.[0]?.text?.trim();
-  if (!raw) throw new Error('Empty response from AI');
+  const responseText = message.content?.[0]?.text?.trim();
+  if (!responseText) throw new Error('Empty response from AI');
 
   let parsed;
   try {
-    parsed = JSON.parse(raw);
+    parsed = JSON.parse(responseText);
   } catch {
-    // Fallback: treat entire response as summary with no search terms
-    return { summary: raw, searchTerms: [] };
+    return { summary: responseText, searchTerms: [] };
   }
 
   return {
-    summary:     parsed.summary     || raw,
+    summary:     parsed.summary     || responseText,
     searchTerms: Array.isArray(parsed.searchTerms) ? parsed.searchTerms : [],
   };
 }
