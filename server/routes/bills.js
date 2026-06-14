@@ -92,6 +92,7 @@ router.get('/', async (req, res) => {
 
   await Promise.all(bills.map(async (bill) => {
     bill.sectors = tagBill(bill);
+    bill.crossStraitFlag = bill.sectors.includes('Cross-Strait');
     bill.summary = subscribed ? await getSummary(bill.billId) : undefined;
   }));
 
@@ -128,6 +129,7 @@ router.get('/:id', async (req, res) => {
 
   const bill = bills[0];
   bill.sectors = tagBill(bill);
+  bill.crossStraitFlag = bill.sectors.includes('Cross-Strait');
 
   const subscribed = await isSubscriber(getUser(req));
   bill.summary = subscribed ? await getSummary(bill.billId) : undefined;

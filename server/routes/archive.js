@@ -101,7 +101,10 @@ router.get('/', async (req, res) => {
     ]);
 
     res.json({
-      bills,
+      bills: bills.map((b) => ({
+        ...b,
+        crossStraitFlag: (b.sectors || []).includes('Cross-Strait'),
+      })),
       total,
       totalPages: Math.ceil(total / limit),
       page,

@@ -41,7 +41,14 @@ const SECTOR_RULES = [
   },
   {
     sector: 'Cross-Strait',
-    keywords: ['兩岸', '大陸地區', '台商', '香港澳門', '港澳'],
+    keywords: [
+      // Cross-strait relations
+      '兩岸', '大陸地區', '台商', '香港澳門', '港澳', '香港', '澳門',
+      '中共', '中華人民共和國', '海峽兩岸',
+      // National security / anti-infiltration
+      '反滲透', '境外敵對勢力', '境外勢力', '外國勢力', '間諜', '外患罪',
+    ],
+    committees: ['外交及國防'],
   },
   {
     sector: 'Foreign Investment',

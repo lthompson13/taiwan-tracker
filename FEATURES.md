@@ -74,6 +74,14 @@ Must be done before accepting real paying customers.
 6. Redeploy and test the full signup + subscription flow with a real card.
 **Note:** Until this is done, all user accounts and subscriptions are in test/sandbox mode and will not carry over to production.
 
+### PL.2 Add BillScope Taiwan branding to website
+**Status:** Not started
+**What:** Replace current "Taiwan Legislative Tracker" placeholder branding with BillScope Taiwan visual identity throughout the app — logo/wordmark, site name in the topbar, page titles, email templates, and any other customer-facing text.
+
+### PL.3 Point domain to BillScopeTW.com
+**Status:** Not started
+**What:** Register BillScopeTW.com (if not already owned) and point it to the Railway deployment. Update Railway's custom domain setting, update `CLIENT_URL` env var, and update Stripe webhook success/cancel URLs and Clerk allowed origins to reflect the new domain.
+
 ---
 
 ## PRIORITY 4 — Enhancement Features
@@ -84,8 +92,7 @@ Nice-to-have improvements that increase value but aren't critical for launch.
 **Status:** Complete
 
 ### 4.3 Cross-strait legislation flag
-**What:** Automatic flagging of any legislation that touches cross-strait relations, mainland China policy, or has national security implications.
-**Why:** This is the highest-sensitivity category for most users. Deserves its own dedicated tracking.
+**Status:** Complete
 
 ### 4.4 News integration
 **What:** Pull in English and Chinese-language news articles related to tracked bills and legislators.
@@ -125,6 +132,10 @@ Lower-priority enhancements to consider after the product is live and generating
 
 ### 2.2 Sector tagging system
 **Completed:** May 2026
+
+### 4.3 Cross-strait legislation flag
+**Completed:** June 2026
+**What was done:** Extended the Cross-Strait sector tag with national security keywords (中共, 中華人民共和國, 反滲透, 境外勢力, 境外敵對勢力, 間諜, 外患罪, 香港, 澳門) and wired committee match to 外交及國防. Bills with the Cross-Strait sector now receive `crossStraitFlag: true` in both the bills route (computed from raw LY API data) and the archive route (computed from stored sectors). UI: amber ⚑ badge on Bills list cards (replacing the generic sector chip), amber left-bordered alert banner on BillDetail Summary tab, and a new "Cross-Strait Watch" panel on the Dashboard showing the 5 most recent flagged bills with a "View all →" link that deep-links to /bills?sector=Cross-Strait. Bills page now reads `?sector=` from URL query params on mount to support that link.
 
 ### 4.2 Committee hearing tracker
 **Completed:** June 2026

@@ -56,6 +56,7 @@ function Dashboard() {
     legislators: null, bills: null, committees: null, interpellations: null,
   });
   const [recentBills, setRecentBills] = useState([]);
+  const [crossStraitBills, setCrossStraitBills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -65,16 +66,17 @@ function Dashboard() {
         setLoading(true);
         setError(null);
 
-        const [legRes, billRes, comRes, intRes, recentRes] = await Promise.all([
+        const [legRes, billRes, comRes, intRes, recentRes, csRes] = await Promise.all([
           fetch('/api/legislators?page=1&limit=1'),
           fetch('/api/bills?page=1&limit=1'),
           fetch('/api/committees?page=1&limit=1'),
           fetch('/api/interpellations?page=1&limit=1'),
           fetch('/api/bills?page=1&limit=5'),
+          fetch('/api/archive?sector=Cross-Strait&limit=5'),
         ]);
 
-        const [legData, billData, comData, intData, recentData] = await Promise.all([
-          legRes.json(), billRes.json(), comRes.json(), intRes.json(), recentRes.json(),
+        const [legData, billData, comData, intData, recentData, csData] = await Promise.all([
+          legRes.json(), billRes.json(), comRes.json(), intRes.json(), recentRes.json(), csRes.json(),
         ]);
 
         setStats({
@@ -84,6 +86,7 @@ function Dashboard() {
           interpellations: intData.total ?? 0,
         });
         setRecentBills(recentData.bills || []);
+        setCrossStraitBills(csData.bills || []);
       } catch (err) {
         setError('Failed to load dashboard: ' + err.message);
       } finally {
@@ -132,6 +135,66 @@ function Dashboard() {
           </Panel>
         ))}
       </div>
+
+      {/* Cross-Strait Watch */}
+      {crossStraitBills.length > 0 && (
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{
+            background: '#fffbeb',
+            border: '1px solid #d97706',
+            borderRadius: 'var(--radius-md)',
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              padding: '12px 16px',
+              borderBottom: '1px solid #fde68a',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '1rem' }}>⚑</span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#92400e', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                  Cross-Strait Watch
+                </span>
+              </div>
+              <button
+                onClick={() => navigate('/bills?sector=Cross-Strait')}
+                style={{ background: 'transparent', border: 'none', color: '#d97706', fontSize: '0.775rem', fontWeight: 600, cursor: 'pointer', padding: 0 }}
+              >
+                View all →
+              </button>
+            </div>
+            {crossStraitBills.map((bill, idx) => (
+              <div
+                key={bill.billId}
+                onClick={() => navigate(`/bills/${encodeURIComponent(bill.billId)}`)}
+                style={{
+                  padding: '11px 16px',
+                  borderBottom: idx < crossStraitBills.length - 1 ? '1px solid #fde68a' : 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                  gap: '12px',
+                  transition: 'background 0.1s',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#fef9e7'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+              >
+                <div style={{ flex: 1, fontSize: '0.85rem', color: '#78350f', lineHeight: 1.4 }}>
+                  {bill.billName
+                    ? (bill.billName.length > 90 ? bill.billName.slice(0, 90) + '…' : bill.billName)
+                    : bill.billNameZh || 'Untitled'}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#d97706', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  {bill.latestProgressDate || '—'}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <Panel title="Recent bills">
         {recentBills.length === 0 ? (

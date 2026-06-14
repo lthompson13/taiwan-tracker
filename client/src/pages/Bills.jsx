@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Panel from '../components/Panel';
 import StatusBadge from '../components/StatusBadge';
 import SearchBar from '../components/SearchBar';
@@ -77,11 +77,14 @@ const LIMIT = 20;
 
 function Bills() {
   const navigate = useNavigate();
+  const location = useLocation();
 
+  // Seed initial filters from URL query params (e.g., ?sector=Cross-Strait from dashboard)
+  const initParams = new URLSearchParams(location.search);
   const [search, setSearch] = useState('');
   const [termFilter, setTermFilter] = useState('');
   const [sessionFilter, setSessionFilter] = useState('');
-  const [sectorFilter, setSectorFilter] = useState('');
+  const [sectorFilter, setSectorFilter] = useState(initParams.get('sector') || '');
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
 
@@ -202,11 +205,28 @@ function Bills() {
                       {bill.billName || bill.billNameZh || 'Untitled'}
                     </div>
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                      {bill.crossStraitFlag && (
+                        <span style={{
+                          display: 'inline-block',
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          letterSpacing: '0.04em',
+                          color: '#92400e',
+                          background: '#fef3c7',
+                          border: '1px solid #d97706',
+                          borderRadius: 'var(--radius-sm)',
+                          padding: '1px 7px',
+                        }}>
+                          ⚑ Cross-Strait
+                        </span>
+                      )}
                       {bill.status && <StatusBadge label={bill.status} type={getStatusBadgeType(bill.status)} />}
                       {bill.category && <StatusBadge label={bill.category} type="info" />}
-                      {Array.isArray(bill.sectors) && bill.sectors.map((s) => (
-                        <StatusBadge key={s} label={s} type="sector" />
-                      ))}
+                      {Array.isArray(bill.sectors) && bill.sectors
+                        .filter((s) => s !== 'Cross-Strait')
+                        .map((s) => (
+                          <StatusBadge key={s} label={s} type="sector" />
+                        ))}
                       {bill.proposer && (
                         <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
                           {bill.proposer.length > 50 ? bill.proposer.slice(0, 50) + '…' : bill.proposer}
