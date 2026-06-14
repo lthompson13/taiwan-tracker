@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth, SignInButton } from '@clerk/clerk-react';
+import { useAuth, useUser, SignInButton } from '@clerk/clerk-react';
 import { useSubscription } from '../hooks/useSubscription';
 import Panel from '../components/Panel';
 import StatusBadge from '../components/StatusBadge';
@@ -141,7 +141,9 @@ function BillDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isSignedIn } = useAuth();
+  const { user } = useUser();
   const { isSubscribed } = useSubscription();
+  const isAdmin = user?.publicMetadata?.isAdmin === true;
 
   const [bill, setBill]       = useState(null);
   const [loading, setLoading] = useState(true);
@@ -158,6 +160,12 @@ function BillDetail() {
   const [annotation, setAnnotation] = useState({ watching: false, stance: null, priority: null, note: '' });
   const [noteInput, setNoteInput]   = useState('');
   const [savingNote, setSavingNote] = useState(false);
+
+  // Editorial (admin-only) — AI draft generation
+  const [editorialText, setEditorialText]       = useState('');
+  const [editorialLoading, setEditorialLoading] = useState(false);
+  const [editorialError, setEditorialError]     = useState(null);
+  const [editorialSaved, setEditorialSaved]     = useState(false);
 
   useEffect(() => {
     const fetchBill = async () => {
@@ -223,6 +231,73 @@ function BillDetail() {
     };
     fetchNews();
   }, [activeTab, bill, news]);
+
+  const handleGenerateDraft = async () => {
+    setEditorialLoading(true);
+    setEditorialError(null);
+    setEditorialSaved(false);
+    try {
+      const res = await fetch('/api/editorial/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ bill }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      setEditorialText(data.draft);
+    } catch (err) {
+      setEditorialError('Generation failed: ' + err.message);
+    } finally {
+      setEditorialLoading(false);
+    }
+  };
+
+  const handleSaveEditorial = async () => {
+    if (!editorialText.trim()) return;
+    setEditorialLoading(true);
+    setEditorialError(null);
+    try {
+      const res = await fetch('/api/editorial/summaries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ billId: bill.billId, summary: editorialText.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      setEditorialSaved(true);
+      // Refresh the bill so the new summary shows in the Why It Matters panel
+      setBill((b) => ({ ...b, summary: { summary: editorialText.trim(), updatedAt: new Date().toISOString().slice(0, 10) } }));
+    } catch (err) {
+      setEditorialError('Save failed: ' + err.message);
+    } finally {
+      setEditorialLoading(false);
+    }
+  };
+
+  const handleDeleteEditorial = async () => {
+    if (!window.confirm('Delete this summary?')) return;
+    setEditorialLoading(true);
+    setEditorialError(null);
+    try {
+      const res = await fetch(`/api/editorial/summaries/${encodeURIComponent(bill.billId)}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      setEditorialText('');
+      setEditorialSaved(false);
+      setBill((b) => ({ ...b, summary: undefined }));
+    } catch (err) {
+      setEditorialError('Delete failed: ' + err.message);
+    } finally {
+      setEditorialLoading(false);
+    }
+  };
 
   const updateAnnotation = useCallback(async (patch) => {
     if (!isSignedIn) return;
@@ -463,6 +538,81 @@ function BillDetail() {
                   Updated {bill.summary.updatedAt}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Admin editorial panel */}
+          {isAdmin && (
+            <div style={{
+              border: '1px solid #7c3aed',
+              borderLeft: '4px solid #7c3aed',
+              borderRadius: 'var(--radius-md)',
+              padding: '16px 20px',
+              marginBottom: '20px',
+              background: '#faf5ff',
+            }}>
+              <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#5b21b6', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: '12px' }}>
+                Editorial — AI Draft
+              </div>
+
+              {editorialError && (
+                <div style={{ padding: '8px 12px', background: 'var(--danger-bg)', color: 'var(--danger)', borderRadius: 'var(--radius-sm)', fontSize: '0.825rem', marginBottom: '10px' }}>
+                  {editorialError}
+                </div>
+              )}
+
+              {editorialSaved && (
+                <div style={{ padding: '8px 12px', background: '#dcfce7', color: '#15803d', borderRadius: 'var(--radius-sm)', fontSize: '0.825rem', marginBottom: '10px' }}>
+                  Saved successfully.
+                </div>
+              )}
+
+              <textarea
+                value={editorialText || (bill.summary?.summary || '')}
+                onChange={(e) => { setEditorialText(e.target.value); setEditorialSaved(false); }}
+                placeholder="Click 'Generate draft' to create an AI draft, or type a summary directly…"
+                rows={5}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  border: '1px solid #c4b5fd',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.875rem',
+                  color: 'var(--text-primary)',
+                  background: 'white',
+                  resize: 'vertical',
+                  fontFamily: 'var(--font-sans)',
+                  lineHeight: 1.6,
+                  boxSizing: 'border-box',
+                  marginBottom: '10px',
+                }}
+              />
+
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  onClick={handleGenerateDraft}
+                  disabled={editorialLoading}
+                  style={{ padding: '6px 14px', background: '#7c3aed', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '0.8rem', fontWeight: 600, cursor: editorialLoading ? 'not-allowed' : 'pointer', opacity: editorialLoading ? 0.6 : 1 }}
+                >
+                  {editorialLoading ? 'Working…' : '✦ Generate draft'}
+                </button>
+                <button
+                  onClick={handleSaveEditorial}
+                  disabled={editorialLoading || !editorialText.trim()}
+                  style={{ padding: '6px 14px', background: 'var(--navy)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '0.8rem', fontWeight: 600, cursor: editorialLoading || !editorialText.trim() ? 'not-allowed' : 'pointer', opacity: editorialLoading || !editorialText.trim() ? 0.5 : 1 }}
+                >
+                  Save
+                </button>
+                {bill.summary && (
+                  <button
+                    onClick={handleDeleteEditorial}
+                    disabled={editorialLoading}
+                    style={{ padding: '6px 14px', background: 'transparent', color: 'var(--danger)', border: '1px solid var(--danger)', borderRadius: 'var(--radius-sm)', fontSize: '0.8rem', fontWeight: 600, cursor: editorialLoading ? 'not-allowed' : 'pointer' }}
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
