@@ -131,6 +131,10 @@ router.get('/:id', async (req, res) => {
   bill.sectors = tagBill(bill);
   bill.crossStraitFlag = bill.sectors.includes('Cross-Strait');
 
+  // Preserve Chinese originals for the zh news query before translation overwrites them
+  bill.billNameZh = bill.billName || '';
+  bill.lawNamesZh = Array.isArray(bill.lawNames) ? [...bill.lawNames] : [];
+
   const subscribed = await isSubscriber(getUser(req));
   bill.summary = subscribed ? await getSummary(bill.billId) : undefined;
 

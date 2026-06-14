@@ -3,10 +3,10 @@
  *
  * GET /api/news
  *   q     — search query (default: 'Taiwan legislature Legislative Yuan')
+ *   lang  — 'en' (default) or 'zh' for Traditional Chinese results
  *   limit — max articles to return (default 8, max 20)
  *
- * Results are cached in memory for 30 minutes per query to avoid
- * hammering the upstream RSS feed.
+ * Results are cached in memory for 30 minutes per (query, lang) pair.
  */
 
 const express = require('express');
@@ -68,17 +68,26 @@ function parseRss(xml, limit) {
   return items;
 }
 
+const FEED_URLS = {
+  en: (q) => `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en-US&gl=US&ceid=US:en`,
+  zh: (q) => `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`,
+};
+
+const DEFAULT_QUERY_ZH = '立法院';
+
 router.get('/', async (req, res) => {
-  const rawQuery = (req.query.q || DEFAULT_QUERY).trim();
+  const lang  = req.query.lang === 'zh' ? 'zh' : 'en';
+  const defaultQ = lang === 'zh' ? DEFAULT_QUERY_ZH : DEFAULT_QUERY;
+  const rawQuery = (req.query.q || defaultQ).trim();
   const query = rawQuery.slice(0, 150);
   const limit = Math.min(20, Math.max(1, parseInt(req.query.limit, 10) || 8));
-  const cacheKey = `${query}::${limit}`;
+  const cacheKey = `${lang}::${query}::${limit}`;
 
   const cached = getCached(cacheKey);
   if (cached) return res.json(cached);
 
   try {
-    const feedUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
+    const feedUrl = FEED_URLS[lang](query);
     const r = await fetch(feedUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; BillScopeTW/1.0)' },
       timeout: 10000,
