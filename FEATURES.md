@@ -125,6 +125,11 @@ Lower-priority enhancements to consider after the product is live and generating
 **Why:** The archive compounds in value over time. Analysts doing due diligence want multi-year legislative history, not just the current term.
 **Implementation approach:** Run the existing sync command once per term/session combination (same as term 11). No code changes needed — the sync infrastructure already supports any term. Do this when Google Translate budget allows, as earlier terms represent significant new translation volume.
 
+### 5.3 Translate Chinese news articles
+**What:** On the News page, add a "Translate" button (or auto-translate toggle) for the 中文報導 section that renders English translations of Chinese article titles inline.
+**Why:** The Chinese feed covers Taiwan political news far better than the English feed, but most subscribers won't read Chinese. Translating the titles bridges the gap without requiring a separate workflow.
+**Implementation approach:** The Google Translate infrastructure already exists in `server/lib/translate.js` with in-memory and Redis caching. Add a `/api/news/translate` endpoint (or extend `/api/news`) that accepts an array of title strings and returns translated versions using the existing `translateText()` function. On the frontend, clicking "Translate titles" fires the request and swaps the Chinese titles for their English equivalents in the UI. Cache translations client-side for the session to avoid re-fetching on refresh. Cost is negligible — article titles are short (~10–20 words each).
+
 ---
 
 ## COMPLETED
