@@ -121,7 +121,19 @@ const linkStyle = {
   textDecoration: 'none',
 };
 
-const TABS = ['Summary', 'Actions', 'Documents', 'Committees'];
+const TABS = ['Summary', 'Actions', 'Documents', 'Committees', 'News'];
+
+function formatNewsDate(pubDate) {
+  if (!pubDate) return '';
+  const d = new Date(pubDate);
+  if (isNaN(d)) return pubDate;
+  const diffH = Math.round((Date.now() - d) / 3600000);
+  if (diffH < 1)  return 'Just now';
+  if (diffH < 24) return `${diffH}h ago`;
+  const diffD = Math.floor(diffH / 24);
+  if (diffD < 7)  return `${diffD}d ago`;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -135,6 +147,11 @@ function BillDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
   const [activeTab, setActiveTab] = useState('Summary');
+
+  // News tab — lazy-loaded when the tab is first selected
+  const [news, setNews]             = useState(null); // null = not yet fetched
+  const [newsLoading, setNewsLoading] = useState(false);
+  const [newsError, setNewsError]   = useState(null);
 
   // User annotations
   const [annotation, setAnnotation] = useState({ watching: false, stance: null, priority: null, note: '' });
@@ -171,6 +188,31 @@ function BillDetail() {
       })
       .catch(() => {});
   }, [isSignedIn, id]);
+
+  // Lazy-load news when the News tab is first opened
+  useEffect(() => {
+    if (activeTab !== 'News' || !bill || news !== null) return;
+    const fetchNews = async () => {
+      setNewsLoading(true);
+      setNewsError(null);
+      try {
+        // Prefer the first related law name (shorter, more searchable) over the full bill title
+        const lawNames = Array.isArray(bill.lawNames) ? bill.lawNames : [];
+        const baseQuery = lawNames[0] || bill.billName || 'Taiwan legislature';
+        const query = baseQuery.slice(0, 80) + ' Taiwan';
+        const res = await fetch(`/api/news?q=${encodeURIComponent(query)}&limit=8`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        setNews(data.articles || []);
+      } catch (err) {
+        setNewsError('Could not load news: ' + err.message);
+        setNews([]);
+      } finally {
+        setNewsLoading(false);
+      }
+    };
+    fetchNews();
+  }, [activeTab, bill, news]);
 
   const updateAnnotation = useCallback(async (patch) => {
     if (!isSignedIn) return;
@@ -547,6 +589,85 @@ function BillDetail() {
                 View on Legislative Yuan website →
               </a>
             </Panel>
+          )}
+        </div>
+      )}
+
+      {/* ── Tab: News ── */}
+      {activeTab === 'News' && (
+        <div>
+          {newsLoading && (
+            <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+              Loading news…
+            </div>
+          )}
+
+          {newsError && (
+            <div style={{ padding: '12px 14px', background: 'var(--danger-bg)', color: 'var(--danger)', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', marginBottom: '16px' }}>
+              {newsError}
+            </div>
+          )}
+
+          {news !== null && !newsLoading && (
+            news.length === 0 ? (
+              <Panel>
+                <div style={{ padding: '24px 0', textAlign: 'center' }}>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '12px' }}>
+                    No recent news found for this bill.
+                  </div>
+                  <a
+                    href={`https://news.google.com/search?q=${encodeURIComponent((Array.isArray(bill.lawNames) && bill.lawNames[0]) || bill.billName || '')}+Taiwan&hl=en-US`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ ...linkStyle, fontSize: '0.825rem' }}
+                  >
+                    Search Google News manually →
+                  </a>
+                </div>
+              </Panel>
+            ) : (
+              <Panel title={`Related news (${news.length})`}>
+                {news.map((article, idx) => (
+                  <div key={idx} style={{
+                    padding: '14px 0',
+                    borderBottom: idx < news.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                  }}>
+                    <a
+                      href={article.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ textDecoration: 'none' }}
+                    >
+                      <div style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--teal)', lineHeight: 1.4, marginBottom: '5px' }}>
+                        {article.title}
+                      </div>
+                    </a>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                      {article.source && (
+                        <span style={{ fontSize: '0.775rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                          {article.source}
+                        </span>
+                      )}
+                      {article.publishedAt && (
+                        <span style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>
+                          · {formatNewsDate(article.publishedAt)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                <div style={{ paddingTop: '12px', borderTop: '1px solid var(--border-subtle)', marginTop: '4px' }}>
+                  <a
+                    href={`https://news.google.com/search?q=${encodeURIComponent((Array.isArray(bill.lawNames) && bill.lawNames[0]) || bill.billName || '')}+Taiwan&hl=en-US`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textDecoration: 'none' }}
+                  >
+                    Search Google News for more →
+                  </a>
+                </div>
+              </Panel>
+            )
           )}
         </div>
       )}

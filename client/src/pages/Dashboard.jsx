@@ -5,6 +5,18 @@ import Panel from '../components/Panel';
 import Loader from '../components/Loader';
 import StatusBadge from '../components/StatusBadge';
 
+function formatNewsDate(pubDate) {
+  if (!pubDate) return '';
+  const d = new Date(pubDate);
+  if (isNaN(d)) return '';
+  const diffH = Math.round((Date.now() - d) / 3600000);
+  if (diffH < 1)  return 'Just now';
+  if (diffH < 24) return `${diffH}h ago`;
+  const diffD = Math.floor(diffH / 24);
+  if (diffD < 7)  return `${diffD}d ago`;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 const statCardStyle = {
   display: 'flex',
   flexDirection: 'column',
@@ -57,6 +69,7 @@ function Dashboard() {
   });
   const [recentBills, setRecentBills] = useState([]);
   const [crossStraitBills, setCrossStraitBills] = useState([]);
+  const [newsArticles, setNewsArticles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -66,17 +79,18 @@ function Dashboard() {
         setLoading(true);
         setError(null);
 
-        const [legRes, billRes, comRes, intRes, recentRes, csRes] = await Promise.all([
+        const [legRes, billRes, comRes, intRes, recentRes, csRes, newsRes] = await Promise.all([
           fetch('/api/legislators?page=1&limit=1'),
           fetch('/api/bills?page=1&limit=1'),
           fetch('/api/committees?page=1&limit=1'),
           fetch('/api/interpellations?page=1&limit=1'),
           fetch('/api/bills?page=1&limit=5'),
           fetch('/api/archive?sector=Cross-Strait&limit=5'),
+          fetch('/api/news?limit=5'),
         ]);
 
-        const [legData, billData, comData, intData, recentData, csData] = await Promise.all([
-          legRes.json(), billRes.json(), comRes.json(), intRes.json(), recentRes.json(), csRes.json(),
+        const [legData, billData, comData, intData, recentData, csData, newsData] = await Promise.all([
+          legRes.json(), billRes.json(), comRes.json(), intRes.json(), recentRes.json(), csRes.json(), newsRes.json(),
         ]);
 
         setStats({
@@ -87,6 +101,7 @@ function Dashboard() {
         });
         setRecentBills(recentData.bills || []);
         setCrossStraitBills(csData.bills || []);
+        setNewsArticles(newsData.articles || []);
       } catch (err) {
         setError('Failed to load dashboard: ' + err.message);
       } finally {
@@ -243,6 +258,55 @@ function Dashboard() {
           </div>
         )}
       </Panel>
+      {/* Latest News */}
+      {newsArticles.length > 0 && (
+        <Panel title="Taiwan Legislative News">
+          {newsArticles.map((article, idx) => (
+            <div
+              key={idx}
+              style={{
+                padding: '12px 0',
+                borderBottom: idx < newsArticles.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                gap: '12px',
+              }}
+            >
+              <div style={{ flex: 1 }}>
+                <a
+                  href={article.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ textDecoration: 'none' }}
+                >
+                  <div style={{ fontSize: '0.875rem', color: 'var(--teal)', fontWeight: 500, lineHeight: 1.4, marginBottom: '3px' }}>
+                    {article.title}
+                  </div>
+                </a>
+                {article.source && (
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{article.source}</span>
+                )}
+              </div>
+              {article.publishedAt && (
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  {formatNewsDate(article.publishedAt)}
+                </span>
+              )}
+            </div>
+          ))}
+          <div style={{ paddingTop: '10px', borderTop: '1px solid var(--border-subtle)', marginTop: '4px' }}>
+            <a
+              href="https://news.google.com/search?q=Taiwan+legislature+Legislative+Yuan&hl=en-US"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textDecoration: 'none' }}
+            >
+              More on Google News →
+            </a>
+          </div>
+        </Panel>
+      )}
     </div>
   );
 }

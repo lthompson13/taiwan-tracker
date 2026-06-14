@@ -95,8 +95,7 @@ Nice-to-have improvements that increase value but aren't critical for launch.
 **Status:** Complete
 
 ### 4.4 News integration
-**What:** Pull in English and Chinese-language news articles related to tracked bills and legislators.
-**Why:** Adds context beyond the legislative record itself.
+**Status:** Complete
 
 ### 4.5 AI-assisted summary generation
 **What:** Use an LLM API to generate draft "Why It Matters" summaries for new bills, which the founder reviews and edits before publishing.
@@ -132,6 +131,10 @@ Lower-priority enhancements to consider after the product is live and generating
 
 ### 2.2 Sector tagging system
 **Completed:** May 2026
+
+### 4.4 News integration
+**Completed:** June 2026
+**What was done:** server/routes/news.js proxies Google News RSS with a 30-minute in-memory cache (max 200 entries, LRU eviction). GET /api/news?q=query&limit=N parses the RSS XML without an external library — splits on <item> blocks, extracts title/url/source/pubDate with regex, strips the "- Source Name" suffix Google appends to titles. Default query is "Taiwan legislature Legislative Yuan". Dashboard now fetches /api/news?limit=5 in parallel with other data and renders a "Taiwan Legislative News" panel with clickable article titles, source name, and relative timestamps (e.g. "3h ago"). BillDetail gains a News tab (5th tab) that lazy-loads when first selected; query uses the bill's first related law name (more focused and searchable) or falls back to the bill name + "Taiwan". Empty state includes a direct Google News search link. Route mounted at /api/news in index.js.
 
 ### 4.3 Cross-strait legislation flag
 **Completed:** June 2026
