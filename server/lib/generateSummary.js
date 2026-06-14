@@ -96,22 +96,42 @@ The following is the raw Chinese legislative record for one bill. Read it direct
 
 ${contextLines}
 
-Write a "Why It Matters" summary of exactly 2–3 sentences in English. Requirements:
+Respond with valid JSON only — no markdown, no extra text. Use this exact structure:
+{
+  "summary": "2–3 sentence business impact summary here",
+  "searchTerms": ["specific term 1", "specific term 2", "specific term 3"]
+}
+
+For "summary": 2–3 sentences in English.
 - Focus on business and investment implications
 - Identify which industries, companies, or cross-border activities are affected
 - Explain what would concretely change if the bill passes
-- Write in plain, direct English — no jargon, no hedging
-- Do not begin with "This bill" — vary the opening`;
+- Plain, direct English — no jargon, no hedging
+- Do not begin with "This bill"
+
+For "searchTerms": 2–3 short English phrases a journalist would search to find news coverage of THIS specific bill's topic (not the general law being amended). Be specific — e.g. "solar panel recycling Taiwan" not "waste disposal law". These will be used as Google News search queries.`;
 
   const message = await ai.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 300,
+    max_tokens: 400,
     messages: [{ role: 'user', content: prompt }],
   });
 
-  const text = message.content?.[0]?.text?.trim();
-  if (!text) throw new Error('Empty response from AI');
-  return text;
+  const raw = message.content?.[0]?.text?.trim();
+  if (!raw) throw new Error('Empty response from AI');
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    // Fallback: treat entire response as summary with no search terms
+    return { summary: raw, searchTerms: [] };
+  }
+
+  return {
+    summary:     parsed.summary     || raw,
+    searchTerms: Array.isArray(parsed.searchTerms) ? parsed.searchTerms : [],
+  };
 }
 
 module.exports = { generateSummary };

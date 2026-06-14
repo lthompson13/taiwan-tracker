@@ -50,8 +50,8 @@ router.post('/generate', async (req, res) => {
   }
 
   try {
-    const draft = await generateSummary(billId, meta || {});
-    res.json({ draft, billId });
+    const { summary, searchTerms } = await generateSummary(billId, meta || {});
+    res.json({ draft: summary, searchTerms, billId });
   } catch (err) {
     console.error('[editorial/generate] Error:', err.message);
     res.status(500).json({ error: 'Failed to generate summary: ' + err.message });
@@ -69,14 +69,14 @@ router.get('/summaries', async (req, res) => {
 });
 
 // POST /api/editorial/summaries — save (create or update) a summary
-// Body: { billId, summary }
+// Body: { billId, summary, searchTerms? }
 router.post('/summaries', async (req, res) => {
-  const { billId, summary } = req.body;
+  const { billId, summary, searchTerms } = req.body;
   if (!billId || !summary) {
     return res.status(400).json({ error: 'billId and summary are required' });
   }
   try {
-    const result = await upsertSummary(billId, summary);
+    const result = await upsertSummary(billId, summary, Array.isArray(searchTerms) ? searchTerms : []);
     res.status(201).json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });

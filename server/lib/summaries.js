@@ -55,8 +55,9 @@ async function getSummary(billId) {
       const row = await db.billSummary.findUnique({ where: { billId } });
       if (row) {
         return {
-          summary: row.summary,
-          updatedAt: row.updatedAt.toISOString().slice(0, 10),
+          summary:      row.summary,
+          searchTermsEn: row.searchTermsEn || [],
+          updatedAt:    row.updatedAt.toISOString().slice(0, 10),
         };
       }
       return null;
@@ -77,14 +78,14 @@ async function getSummary(billId) {
  * @param {string} summaryText
  * @returns {Promise<object>} The saved record
  */
-async function upsertSummary(billId, summaryText) {
+async function upsertSummary(billId, summaryText, searchTermsEn = []) {
   const db = getDb();
   if (!db) throw new Error('Database not configured');
 
   return db.billSummary.upsert({
-    where: { billId },
-    update: { summary: summaryText },
-    create: { billId, summary: summaryText },
+    where:  { billId },
+    update: { summary: summaryText, searchTermsEn },
+    create: { billId, summary: summaryText, searchTermsEn },
   });
 }
 

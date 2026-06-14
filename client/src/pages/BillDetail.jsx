@@ -162,10 +162,11 @@ function BillDetail() {
   const [savingNote, setSavingNote] = useState(false);
 
   // Editorial (admin-only) — AI draft generation
-  const [editorialText, setEditorialText]       = useState('');
-  const [editorialLoading, setEditorialLoading] = useState(false);
-  const [editorialError, setEditorialError]     = useState(null);
-  const [editorialSaved, setEditorialSaved]     = useState(false);
+  const [editorialText, setEditorialText]         = useState('');
+  const [editorialSearchTerms, setEditorialSearchTerms] = useState([]);
+  const [editorialLoading, setEditorialLoading]   = useState(false);
+  const [editorialError, setEditorialError]       = useState(null);
+  const [editorialSaved, setEditorialSaved]       = useState(false);
 
   useEffect(() => {
     const fetchBill = async () => {
@@ -205,10 +206,15 @@ function BillDetail() {
       setNewsLoading(true);
       setNewsError(null);
       try {
-        // English: use translated law name or bill name
+        // English: prefer stored AI-generated search terms; fall back to law/bill name
+        const storedTerms = bill.summary?.searchTermsEn;
         const lawNamesEn = Array.isArray(bill.lawNames) ? bill.lawNames : [];
-        const enBase = lawNamesEn[0] || bill.billName || 'Taiwan legislature';
-        const enQuery = enBase.slice(0, 80) + ' Taiwan';
+        const enBase = (Array.isArray(storedTerms) && storedTerms.length > 0)
+          ? storedTerms[0]
+          : (lawNamesEn[0] || bill.billName || 'Taiwan legislature');
+        const enQuery = Array.isArray(storedTerms) && storedTerms.length > 0
+          ? enBase.slice(0, 120)
+          : enBase.slice(0, 80) + ' Taiwan';
 
         // Chinese: use original Chinese law name or bill name (preserved before translation)
         const lawNamesZh = Array.isArray(bill.lawNamesZh) ? bill.lawNamesZh : [];
@@ -253,6 +259,7 @@ function BillDetail() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       setEditorialText(data.draft);
+      setEditorialSearchTerms(Array.isArray(data.searchTerms) ? data.searchTerms : []);
     } catch (err) {
       setEditorialError('Generation failed: ' + err.message);
     } finally {
@@ -269,7 +276,7 @@ function BillDetail() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ billId: bill.billId, summary: editorialText.trim() }),
+        body: JSON.stringify({ billId: bill.billId, summary: editorialText.trim(), searchTerms: editorialSearchTerms }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -594,6 +601,13 @@ function BillDetail() {
                   marginBottom: '10px',
                 }}
               />
+
+              {editorialSearchTerms.length > 0 && (
+                <div style={{ marginBottom: '10px', fontSize: '0.775rem', color: '#6d28d9' }}>
+                  <span style={{ fontWeight: 600 }}>News search terms: </span>
+                  {editorialSearchTerms.join(' · ')}
+                </div>
+              )}
 
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <button

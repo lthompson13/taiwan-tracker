@@ -10,11 +10,12 @@ datasource db {
 // Editorial "Why It Matters" summaries, keyed by LY API bill ID (議案編號).
 // Replaces server/data/summaries.json once the database is live.
 model BillSummary {
-  id        Int      @id @default(autoincrement())
-  billId    String   @unique
-  summary   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             Int      @id @default(autoincrement())
+  billId         String   @unique
+  summary        String
+  searchTermsEn  String[] @default([])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 // Weekly digest email subscribers.
