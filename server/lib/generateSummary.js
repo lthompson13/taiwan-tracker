@@ -120,9 +120,12 @@ For "searchTerms": 2–3 short English phrases a journalist would search to find
   const responseText = message.content?.[0]?.text?.trim();
   if (!responseText) throw new Error('Empty response from AI');
 
+  // Strip markdown code fences if Claude wrapped the JSON in ```json ... ```
+  const stripped = responseText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+
   let parsed;
   try {
-    parsed = JSON.parse(responseText);
+    parsed = JSON.parse(stripped);
   } catch {
     return { summary: responseText, searchTerms: [] };
   }
