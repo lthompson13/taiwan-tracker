@@ -121,7 +121,7 @@ const linkStyle = {
   textDecoration: 'none',
 };
 
-const TABS = ['Summary', 'Actions', 'Documents', 'Committees', 'News'];
+const BASE_TABS = ['Summary', 'Actions', 'Documents', 'Committees'];
 
 function formatNewsDate(pubDate) {
   if (!pubDate) return '';
@@ -468,8 +468,12 @@ function BillDetail() {
       )}
 
       {/* ── Tab bar ── */}
+      {(() => {
+        const hasNews = Array.isArray(bill.summary?.searchTermsEn) && bill.summary.searchTermsEn.length > 0;
+        const tabs = hasNews ? [...BASE_TABS, 'News'] : BASE_TABS;
+        return (
       <div style={{ display: 'flex', borderBottom: '2px solid var(--border-default)', marginBottom: '24px' }}>
-        {TABS.map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -492,6 +496,8 @@ function BillDetail() {
           </button>
         ))}
       </div>
+        );
+      })()}
 
       {/* ── Tab: Summary ── */}
       {activeTab === 'Summary' && (
