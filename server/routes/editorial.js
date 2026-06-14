@@ -37,12 +37,12 @@ function requireEditorialAccess(req, res, next) {
 router.use(requireEditorialAccess);
 
 // POST /api/editorial/generate
-// Body: { bill } — the translated bill object from /api/bills/:id
-// Returns: { draft }
+// Body: { billId, meta } — meta is optional translated metadata (sectors, category, status)
+// Returns: { draft, billId }
 router.post('/generate', async (req, res) => {
-  const { bill } = req.body;
-  if (!bill || !bill.billId) {
-    return res.status(400).json({ error: 'bill object with billId is required' });
+  const { billId, meta } = req.body;
+  if (!billId) {
+    return res.status(400).json({ error: 'billId is required' });
   }
 
   if (!process.env.ANTHROPIC_API_KEY) {
@@ -50,8 +50,8 @@ router.post('/generate', async (req, res) => {
   }
 
   try {
-    const draft = await generateSummary(bill);
-    res.json({ draft, billId: bill.billId });
+    const draft = await generateSummary(billId, meta || {});
+    res.json({ draft, billId });
   } catch (err) {
     console.error('[editorial/generate] Error:', err.message);
     res.status(500).json({ error: 'Failed to generate summary: ' + err.message });

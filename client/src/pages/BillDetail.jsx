@@ -241,7 +241,14 @@ function BillDetail() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ bill }),
+        body: JSON.stringify({
+          billId: bill.billId,
+          meta: {
+            sectors:  bill.sectors,
+            category: bill.category,
+            status:   bill.status,
+          },
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
