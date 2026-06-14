@@ -10,6 +10,7 @@ import Committees from './pages/Committees';
 import Activity from './pages/Activity';
 import Watchlist from './pages/Watchlist';
 import Hearings from './pages/Hearings';
+import News from './pages/News';
 import Upgrade from './pages/Upgrade';
 import UpgradeSuccess from './pages/UpgradeSuccess';
 import SignInPage from './pages/SignIn';
@@ -38,6 +39,7 @@ function App() {
           <Route path="activity" element={<Activity />} />
           <Route path="watchlist" element={<Watchlist />} />
           <Route path="hearings" element={<Hearings />} />
+          <Route path="news" element={<News />} />
           <Route path="upgrade" element={<Upgrade />} />
         </Route>
       </Routes>

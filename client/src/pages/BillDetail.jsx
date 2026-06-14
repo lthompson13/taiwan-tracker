@@ -121,19 +121,7 @@ const linkStyle = {
   textDecoration: 'none',
 };
 
-const BASE_TABS = ['Summary', 'Actions', 'Documents', 'Committees'];
-
-function formatNewsDate(pubDate) {
-  if (!pubDate) return '';
-  const d = new Date(pubDate);
-  if (isNaN(d)) return pubDate;
-  const diffH = Math.round((Date.now() - d) / 3600000);
-  if (diffH < 1)  return 'Just now';
-  if (diffH < 24) return `${diffH}h ago`;
-  const diffD = Math.floor(diffH / 24);
-  if (diffD < 7)  return `${diffD}d ago`;
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
+const TABS = ['Summary', 'Actions', 'Documents', 'Committees'];
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -149,12 +137,6 @@ function BillDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState(null);
   const [activeTab, setActiveTab] = useState('Summary');
-
-  // News tab — lazy-loaded when the tab is first selected
-  // null = not yet fetched; { en: [], zh: [] } once loaded
-  const [news, setNews]             = useState(null);
-  const [newsLoading, setNewsLoading] = useState(false);
-  const [newsError, setNewsError]   = useState(null);
 
   // User annotations
   const [annotation, setAnnotation] = useState({ watching: false, stance: null, priority: null, note: '' });
@@ -198,45 +180,6 @@ function BillDetail() {
       })
       .catch(() => {});
   }, [isSignedIn, id]);
-
-  // Lazy-load news (EN + ZH in parallel) when the News tab is first opened
-  useEffect(() => {
-    if (activeTab !== 'News' || !bill || news !== null) return;
-    const fetchNews = async () => {
-      setNewsLoading(true);
-      setNewsError(null);
-      try {
-        // English: prefer stored AI-generated search terms; fall back to law/bill name
-        const storedTerms = bill.summary?.searchTermsEn;
-        const lawNamesEn = Array.isArray(bill.lawNames) ? bill.lawNames : [];
-        const enBase = (Array.isArray(storedTerms) && storedTerms.length > 0)
-          ? storedTerms[0]
-          : (lawNamesEn[0] || bill.billName || 'Taiwan legislature');
-        const enQuery = Array.isArray(storedTerms) && storedTerms.length > 0
-          ? enBase.slice(0, 120)
-          : enBase.slice(0, 80) + ' Taiwan';
-
-        // Chinese: use original Chinese law name or bill name (preserved before translation)
-        const lawNamesZh = Array.isArray(bill.lawNamesZh) ? bill.lawNamesZh : [];
-        const zhBase = lawNamesZh[0] || bill.billNameZh || '立法院';
-        const zhQuery = zhBase.slice(0, 80);
-
-        const [enRes, zhRes] = await Promise.all([
-          fetch(`/api/news?q=${encodeURIComponent(enQuery)}&lang=en&limit=8`),
-          fetch(`/api/news?q=${encodeURIComponent(zhQuery)}&lang=zh&limit=8`),
-        ]);
-
-        const [enData, zhData] = await Promise.all([enRes.json(), zhRes.json()]);
-        setNews({ en: enData.articles || [], zh: zhData.articles || [] });
-      } catch (err) {
-        setNewsError('Could not load news: ' + err.message);
-        setNews({ en: [], zh: [] });
-      } finally {
-        setNewsLoading(false);
-      }
-    };
-    fetchNews();
-  }, [activeTab, bill, news]);
 
   const handleGenerateDraft = async () => {
     setEditorialLoading(true);
@@ -468,12 +411,8 @@ function BillDetail() {
       )}
 
       {/* ── Tab bar ── */}
-      {(() => {
-        const hasNews = Array.isArray(bill.summary?.searchTermsEn) && bill.summary.searchTermsEn.length > 0;
-        const tabs = hasNews ? [...BASE_TABS, 'News'] : BASE_TABS;
-        return (
       <div style={{ display: 'flex', borderBottom: '2px solid var(--border-default)', marginBottom: '24px' }}>
-        {tabs.map((tab) => (
+        {TABS.map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -496,8 +435,6 @@ function BillDetail() {
           </button>
         ))}
       </div>
-        );
-      })()}
 
       {/* ── Tab: Summary ── */}
       {activeTab === 'Summary' && (
@@ -777,127 +714,6 @@ function BillDetail() {
               </a>
             </Panel>
           )}
-        </div>
-      )}
-
-      {/* ── Tab: News ── */}
-      {activeTab === 'News' && (
-        <div>
-          {newsLoading && (
-            <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-              Loading news…
-            </div>
-          )}
-
-          {newsError && (
-            <div style={{ padding: '12px 14px', background: 'var(--danger-bg)', color: 'var(--danger)', borderRadius: 'var(--radius-md)', fontSize: '0.875rem', marginBottom: '16px' }}>
-              {newsError}
-            </div>
-          )}
-
-          {news !== null && !newsLoading && (() => {
-            const enArticles = news.en || [];
-            const zhArticles = news.zh || [];
-            const hasAny = enArticles.length > 0 || zhArticles.length > 0;
-
-            if (!hasAny) {
-              return (
-                <Panel>
-                  <div style={{ padding: '24px 0', textAlign: 'center' }}>
-                    <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '12px' }}>
-                      No recent news found for this bill.
-                    </div>
-                    <a
-                      href={`https://news.google.com/search?q=${encodeURIComponent((Array.isArray(bill.lawNamesZh) && bill.lawNamesZh[0]) || bill.billNameZh || '')}+台灣&hl=zh-TW`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ ...linkStyle, fontSize: '0.825rem' }}
-                    >
-                      Search Google News manually →
-                    </a>
-                  </div>
-                </Panel>
-              );
-            }
-
-            const renderArticles = (articles) =>
-              articles.map((article, idx) => (
-                <div key={idx} style={{
-                  padding: '14px 0',
-                  borderBottom: idx < articles.length - 1 ? '1px solid var(--border-subtle)' : 'none',
-                }}>
-                  <a href={article.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                    <div style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--teal)', lineHeight: 1.4, marginBottom: '5px' }}>
-                      {article.title}
-                    </div>
-                  </a>
-                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    {article.source && (
-                      <span style={{ fontSize: '0.775rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-                        {article.source}
-                      </span>
-                    )}
-                    {article.publishedAt && (
-                      <span style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>
-                        · {formatNewsDate(article.publishedAt)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ));
-
-            return (
-              <>
-                {enArticles.length > 0 && (
-                  <Panel title={`English coverage (${enArticles.length})`}>
-                    {renderArticles(enArticles)}
-                    <div style={{ paddingTop: '12px', borderTop: '1px solid var(--border-subtle)', marginTop: '4px' }}>
-                      <a
-                        href={`https://news.google.com/search?q=${encodeURIComponent(((Array.isArray(bill.lawNames) && bill.lawNames[0]) || bill.billName || '') + ' Taiwan')}&hl=en-US`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textDecoration: 'none' }}
-                      >
-                        More on Google News (English) →
-                      </a>
-                    </div>
-                  </Panel>
-                )}
-
-                {zhArticles.length > 0 && (
-                  <Panel title={`中文報導 (${zhArticles.length})`}>
-                    {renderArticles(zhArticles)}
-                    <div style={{ paddingTop: '12px', borderTop: '1px solid var(--border-subtle)', marginTop: '4px' }}>
-                      <a
-                        href={`https://news.google.com/search?q=${encodeURIComponent((Array.isArray(bill.lawNamesZh) && bill.lawNamesZh[0]) || bill.billNameZh || '')}&hl=zh-TW`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textDecoration: 'none' }}
-                      >
-                        更多新聞 →
-                      </a>
-                    </div>
-                  </Panel>
-                )}
-
-                {enArticles.length === 0 && (
-                  <Panel title="English coverage">
-                    <div style={{ padding: '16px 0', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                      No English coverage found for this bill.
-                    </div>
-                  </Panel>
-                )}
-
-                {zhArticles.length === 0 && (
-                  <Panel title="中文報導">
-                    <div style={{ padding: '16px 0', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                      找不到相關中文新聞。
-                    </div>
-                  </Panel>
-                )}
-              </>
-            );
-          })()}
         </div>
       )}
 
