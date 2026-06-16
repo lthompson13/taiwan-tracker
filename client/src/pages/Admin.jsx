@@ -96,6 +96,13 @@ function Admin() {
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState(null);
 
+  // Digest tab
+  const [digestSelected, setDigestSelected] = useState(new Set());
+  const [digestIntro, setDigestIntro] = useState('');
+  const [digestSending, setDigestSending] = useState(false);
+  const [digestResult, setDigestResult] = useState(null);
+  const [digestError, setDigestError] = useState(null);
+
   useEffect(() => {
     if (isLoaded && isSignedIn) loadAll();
   }, [isLoaded, isSignedIn]);
@@ -313,6 +320,39 @@ function Admin() {
     } catch {}
   }
 
+  // ── Digest actions ────────────────────────────────────────────────────────
+
+  async function previewDigest() {
+    const ids = Array.from(digestSelected);
+    if (ids.length === 0) return;
+    const params = new URLSearchParams({ billIds: ids.join(','), intro: digestIntro });
+    const res = await fetch(`/api/editorial/digest/preview?${params}`, { credentials: 'include' });
+    const html = await res.text();
+    const blob = new Blob([html], { type: 'text/html' });
+    window.open(URL.createObjectURL(blob), '_blank');
+  }
+
+  async function handleSendDigest() {
+    setDigestSending(true);
+    setDigestResult(null);
+    setDigestError(null);
+    try {
+      const res = await fetch('/api/editorial/digest/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ billIds: Array.from(digestSelected), intro: digestIntro }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setDigestResult(data);
+    } catch (err) {
+      setDigestError(err.message);
+    } finally {
+      setDigestSending(false);
+    }
+  }
+
   // ── Tab bar style ─────────────────────────────────────────────────────────
 
   function tabBtn(active) {
@@ -378,6 +418,7 @@ function Admin() {
       >
         {[
           { key: 'summaries', label: `Summaries${summaries.length ? ` (${summaries.length})` : ''}` },
+          { key: 'digest', label: 'Digest' },
           { key: 'subscribers', label: `Subscribers${subscribers.length ? ` (${subscribers.length})` : ''}` },
           { key: 'system', label: 'System' },
         ].map(({ key, label }) => (
@@ -590,6 +631,186 @@ function Admin() {
                     ])}
                   </tbody>
                 </table>
+              </div>
+            )}
+          </Panel>
+        </div>
+      )}
+
+      {/* ── DIGEST TAB ────────────────────────────────────────────────────── */}
+      {!loading && tab === 'digest' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <Panel title="Compose digest">
+            <p style={{ margin: '0 0 16px', fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+              Select the bills to feature in this week's email, write an optional intro, then preview or send.
+              Sends to all <strong style={{ color: 'var(--navy)' }}>{syncStatus?.subscriberCount ?? 0}</strong> active subscriber{syncStatus?.subscriberCount !== 1 ? 's' : ''}.
+            </p>
+
+            {/* Checklist controls */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                {digestSelected.size} selected
+              </span>
+              <button
+                style={{ ...btn('secondary'), fontSize: '0.75rem', padding: '3px 10px' }}
+                onClick={() => setDigestSelected(new Set(summaries.map((s) => s.billId)))}
+              >
+                Select all
+              </button>
+              <button
+                style={{ ...btn('secondary'), fontSize: '0.75rem', padding: '3px 10px' }}
+                onClick={() => setDigestSelected(new Set())}
+              >
+                Clear
+              </button>
+            </div>
+
+            {/* Bill checklist */}
+            <div
+              style={{
+                border: '1px solid var(--border-default)',
+                borderRadius: 'var(--radius-md)',
+                overflow: 'hidden',
+                marginBottom: '18px',
+                maxHeight: '420px',
+                overflowY: 'auto',
+              }}
+            >
+              {summaries.length === 0 ? (
+                <div style={{ padding: '16px', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+                  No summaries published yet. Publish some from the Summaries tab first.
+                </div>
+              ) : (
+                summaries.map((s, idx) => {
+                  const checked = digestSelected.has(s.billId);
+                  return (
+                    <label
+                      key={s.billId}
+                      style={{
+                        display: 'flex',
+                        gap: '12px',
+                        alignItems: 'flex-start',
+                        padding: '12px 14px',
+                        borderBottom: idx < summaries.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                        cursor: 'pointer',
+                        background: checked ? PURPLE_BG : 'transparent',
+                        transition: 'background 0.1s',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => {
+                          const next = new Set(digestSelected);
+                          if (e.target.checked) next.add(s.billId);
+                          else next.delete(s.billId);
+                          setDigestSelected(next);
+                        }}
+                        style={{ marginTop: '3px', accentColor: PURPLE, flexShrink: 0 }}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 700, color: PURPLE, marginBottom: '3px' }}>
+                          {s.billId}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: '0.8rem',
+                            color: 'var(--text-muted)',
+                            lineHeight: 1.45,
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                          }}
+                        >
+                          {s.summary}
+                        </div>
+                        {(s.searchTermsEn || []).length > 0 && (
+                          <div style={{ marginTop: '5px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                            {s.searchTermsEn.map((t) => (
+                              <span
+                                key={t}
+                                style={{
+                                  padding: '1px 6px',
+                                  background: PURPLE_BG,
+                                  color: PURPLE,
+                                  borderRadius: '999px',
+                                  fontSize: '0.7rem',
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {t}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Intro text */}
+            <div style={{ marginBottom: '18px' }}>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '5px' }}>
+                Intro paragraph (optional)
+              </div>
+              <textarea
+                style={{ ...inputStyle, minHeight: '80px', resize: 'vertical', fontFamily: 'inherit' }}
+                placeholder="This week's digest highlights several significant developments in Taiwan's Legislative Yuan..."
+                value={digestIntro}
+                onChange={(e) => setDigestIntro(e.target.value)}
+              />
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button
+                style={btn('secondary')}
+                onClick={previewDigest}
+                disabled={digestSelected.size === 0}
+              >
+                Preview email
+              </button>
+              <button
+                style={btn('primary')}
+                onClick={handleSendDigest}
+                disabled={digestSending || digestSelected.size === 0 || (syncStatus?.subscriberCount ?? 0) === 0}
+              >
+                {digestSending
+                  ? 'Sending…'
+                  : `Send to ${syncStatus?.subscriberCount ?? 0} subscriber${(syncStatus?.subscriberCount ?? 0) !== 1 ? 's' : ''}`}
+              </button>
+            </div>
+
+            {digestResult && (
+              <div
+                style={{
+                  marginTop: '14px',
+                  padding: '10px 14px',
+                  background: '#f0fdf4',
+                  color: '#15803d',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.875rem',
+                }}
+              >
+                Digest sent to {digestResult.sent} subscriber{digestResult.sent !== 1 ? 's' : ''}.
+                {digestResult.failed > 0 && ` ${digestResult.failed} failed — check server logs.`}
+              </div>
+            )}
+            {digestError && (
+              <div
+                style={{
+                  marginTop: '14px',
+                  padding: '10px 14px',
+                  background: 'var(--danger-bg)',
+                  color: 'var(--danger)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.875rem',
+                }}
+              >
+                {digestError}
               </div>
             )}
           </Panel>

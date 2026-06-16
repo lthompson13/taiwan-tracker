@@ -17,6 +17,7 @@ const { generateSummary } = require('../lib/generateSummary');
 const { upsertSummary, deleteSummary, getAllSummaries } = require('../lib/summaries');
 const { getDb } = require('../lib/db');
 const { syncBills } = require('../lib/billSync');
+const { buildDigestHtml, sendDigest } = require('../lib/digest');
 
 function requireEditorialAccess(req, res, next) {
   const { userId } = getAuth(req);
@@ -203,6 +204,93 @@ router.post('/sync', async (req, res) => {
     .catch((err) => {
       console.error('[editorial/sync] Failed:', err.message);
     });
+});
+
+// ---------------------------------------------------------------------------
+// Digest
+// ---------------------------------------------------------------------------
+
+async function enrichBills(billIds, db) {
+  const [summaries, bills] = await Promise.all([
+    db.billSummary.findMany({ where: { billId: { in: billIds } } }),
+    db.bill.findMany({
+      where: { billId: { in: billIds } },
+      select: { billId: true, billName: true, status: true, sectors: true },
+    }),
+  ]);
+  const billMap = Object.fromEntries(bills.map((b) => [b.billId, b]));
+  const enriched = summaries.map((s) => ({
+    billId: s.billId,
+    billName: billMap[s.billId]?.billName || s.billId,
+    status: billMap[s.billId]?.status || '',
+    sectors: billMap[s.billId]?.sectors || [],
+    summary: s.summary,
+    updatedAt: s.updatedAt.toISOString().slice(0, 10),
+  }));
+  // Preserve caller-specified order
+  enriched.sort((a, b) => billIds.indexOf(a.billId) - billIds.indexOf(b.billId));
+  return enriched;
+}
+
+// GET /api/editorial/digest/preview?billIds=a,b&intro=...
+// Returns the full HTML email so the admin can open it in a new tab
+router.get('/digest/preview', async (req, res) => {
+  const billIds = (req.query.billIds || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const intro = req.query.intro || '';
+
+  if (billIds.length === 0) {
+    return res.status(400).send('<p>No bills selected.</p>');
+  }
+
+  try {
+    const db = getDb();
+    if (!db) return res.status(503).send('<p>Database not configured</p>');
+    const bills = await enrichBills(billIds, db);
+    const weekEnding = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const html = buildDigestHtml(bills, { introText: intro, weekEnding, platformUrl: process.env.CLIENT_URL });
+    res.type('html').send(html);
+  } catch (err) {
+    res.status(500).send(`<p>Error: ${err.message}</p>`);
+  }
+});
+
+// POST /api/editorial/digest/send
+// Body: { billIds: string[], intro?: string }
+router.post('/digest/send', async (req, res) => {
+  const { billIds, intro } = req.body;
+  if (!Array.isArray(billIds) || billIds.length === 0) {
+    return res.status(400).json({ error: 'billIds array is required' });
+  }
+  if (!process.env.RESEND_API_KEY) {
+    return res.status(503).json({ error: 'RESEND_API_KEY is not configured on this server' });
+  }
+
+  try {
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'Database not configured' });
+
+    const [bills, subscribers] = await Promise.all([
+      enrichBills(billIds, db),
+      db.subscriber.findMany({ where: { active: true } }),
+    ]);
+
+    if (subscribers.length === 0) {
+      return res.json({ sent: 0, failed: 0, message: 'No active subscribers' });
+    }
+
+    const weekEnding = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const { sent, failed } = await sendDigest(bills, subscribers, {
+      introText: intro || '',
+      weekEnding,
+      platformUrl: process.env.CLIENT_URL,
+    });
+
+    console.log(`[editorial/digest] Sent ${sent}/${subscribers.length}, failed: ${failed}`);
+    res.json({ sent, failed, total: subscribers.length });
+  } catch (err) {
+    console.error('[editorial/digest/send] Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;
