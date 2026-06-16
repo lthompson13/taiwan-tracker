@@ -14,7 +14,9 @@ const express = require('express');
 const router = express.Router();
 const { getAuth } = require('@clerk/express');
 const { generateSummary } = require('../lib/generateSummary');
-const { upsertSummary, deleteSummary, getAllSummaries, getSummary } = require('../lib/summaries');
+const { upsertSummary, deleteSummary, getAllSummaries } = require('../lib/summaries');
+const { getDb } = require('../lib/db');
+const { syncBills } = require('../lib/billSync');
 
 function requireEditorialAccess(req, res, next) {
   const { userId } = getAuth(req);
@@ -36,9 +38,13 @@ function requireEditorialAccess(req, res, next) {
 
 router.use(requireEditorialAccess);
 
+// ---------------------------------------------------------------------------
+// Bill summaries
+// ---------------------------------------------------------------------------
+
 // POST /api/editorial/generate
 // Body: { billId, meta } — meta is optional translated metadata (sectors, category, status)
-// Returns: { draft, billId }
+// Returns: { draft, searchTerms, billId }
 router.post('/generate', async (req, res) => {
   const { billId, meta } = req.body;
   if (!billId) {
@@ -92,6 +98,111 @@ router.delete('/summaries/:billId', async (req, res) => {
     if (err.code === 'P2025') return res.status(404).json({ error: 'Summary not found' });
     res.status(500).json({ error: err.message });
   }
+});
+
+// ---------------------------------------------------------------------------
+// Subscribers
+// ---------------------------------------------------------------------------
+
+// GET /api/editorial/subscribers — list all
+router.get('/subscribers', async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'Database not configured' });
+    const subscribers = await db.subscriber.findMany({ orderBy: { createdAt: 'desc' } });
+    res.json(subscribers);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/editorial/subscribers — add a subscriber
+router.post('/subscribers', async (req, res) => {
+  const { email, name } = req.body;
+  if (!email) return res.status(400).json({ error: 'email is required' });
+  try {
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'Database not configured' });
+    const subscriber = await db.subscriber.create({ data: { email, name: name || null } });
+    res.status(201).json(subscriber);
+  } catch (err) {
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Email already subscribed' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /api/editorial/subscribers/:id/toggle — flip active status
+router.patch('/subscribers/:id/toggle', async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'Database not configured' });
+    const id = parseInt(req.params.id, 10);
+    const existing = await db.subscriber.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: 'Subscriber not found' });
+    const updated = await db.subscriber.update({
+      where: { id },
+      data: { active: !existing.active },
+    });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/editorial/subscribers/:id
+router.delete('/subscribers/:id', async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'Database not configured' });
+    await db.subscriber.delete({ where: { id: parseInt(req.params.id, 10) } });
+    res.json({ success: true });
+  } catch (err) {
+    if (err.code === 'P2025') return res.status(404).json({ error: 'Subscriber not found' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Sync status & trigger
+// ---------------------------------------------------------------------------
+
+// GET /api/editorial/sync/status
+router.get('/sync/status', async (req, res) => {
+  try {
+    const db = getDb();
+    if (!db) return res.status(503).json({ error: 'Database not configured' });
+    const [billCount, summaryCount, subscriberCount, latest] = await Promise.all([
+      db.bill.count(),
+      db.billSummary.count(),
+      db.subscriber.count({ where: { active: true } }),
+      db.bill.findFirst({ orderBy: { syncedAt: 'desc' }, select: { syncedAt: true } }),
+    ]);
+    res.json({ billCount, summaryCount, subscriberCount, lastSyncedAt: latest?.syncedAt || null });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/editorial/sync — trigger a background sync
+// Body: { terms?: number[], session?: number, maxPages?: number }
+router.post('/sync', async (req, res) => {
+  const terms = Array.isArray(req.body?.terms) ? req.body.terms.map(Number) : [11];
+  const validTerms = terms.filter((t) => Number.isInteger(t) && t > 0);
+  if (validTerms.length === 0) {
+    return res.status(400).json({ error: 'Provide at least one valid term number in "terms"' });
+  }
+  const maxPages = Number.isInteger(req.body?.maxPages) && req.body.maxPages > 0 ? req.body.maxPages : 150;
+  const session = Number.isInteger(req.body?.session) && req.body.session > 0 ? req.body.session : null;
+
+  res.json({ message: 'Sync started', terms: validTerms, maxPages, session });
+
+  syncBills(validTerms, maxPages, session)
+    .then(({ synced, skipped, errors }) => {
+      console.log(`[editorial/sync] Complete — synced: ${synced}, skipped: ${skipped}, errors: ${errors}`);
+    })
+    .catch((err) => {
+      console.error('[editorial/sync] Failed:', err.message);
+    });
 });
 
 module.exports = router;

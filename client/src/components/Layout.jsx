@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
+import { SignedIn, SignedOut, UserButton, useUser } from '@clerk/clerk-react';
 import { useSubscription } from '../hooks/useSubscription';
 import TranslationBanner from './TranslationBanner';
 import './Layout.css';
@@ -19,6 +19,8 @@ const NAV_ITEMS = [
 function Layout() {
   const navigate = useNavigate();
   const { isSubscribed, isLoaded } = useSubscription();
+  const { user } = useUser();
+  const isAdmin = user?.publicMetadata?.isAdmin === true;
   const currentDate = new Date().toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
@@ -76,6 +78,17 @@ function Layout() {
               ))}
             </ul>
           </nav>
+          {isAdmin && (
+            <div style={{ padding: '8px 12px 0' }}>
+              <NavLink
+                to="/admin"
+                className={({ isActive }) => `layout-nav-link${isActive ? ' active' : ''}`}
+                style={{ display: 'block', padding: '6px 10px', fontSize: '0.8rem', color: '#7c3aed', fontWeight: 600 }}
+              >
+                ⚙ Admin
+              </NavLink>
+            </div>
+          )}
           {isLoaded && !isSubscribed && (
             <div style={{ padding: '12px 12px 8px' }}>
               <button
