@@ -30,9 +30,18 @@ function Layout() {
   return (
     <div className="layout">
       <header className="layout-topbar">
-        <div className="layout-topbar-left">
-          <span className="layout-topbar-title">BillScope Taiwan</span>
-          <span className="layout-topbar-subtitle">Taiwan legislative intelligence</span>
+        <div className="layout-topbar-left" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <svg width="30" height="30" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect width="32" height="32" rx="6" fill="rgba(255,255,255,0.12)"/>
+            <circle cx="14" cy="13" r="7" fill="none" stroke="#2A7F8E" strokeWidth="2.5"/>
+            <rect x="10.5" y="10.5" width="7" height="1.5" rx="0.75" fill="white"/>
+            <rect x="10.5" y="13.5" width="5" height="1.5" rx="0.75" fill="white" opacity="0.7"/>
+            <line x1="19.5" y1="18.5" x2="25" y2="24" stroke="#2A7F8E" strokeWidth="2.5" strokeLinecap="round"/>
+          </svg>
+          <div>
+            <span className="layout-topbar-title">BillScope Taiwan</span>
+            <span className="layout-topbar-subtitle">Taiwan legislative intelligence</span>
+          </div>
         </div>
         <div className="layout-topbar-right">
           <SignedOut>
