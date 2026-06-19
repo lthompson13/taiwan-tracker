@@ -38,10 +38,7 @@ function Layout() {
             <rect x="10.5" y="13.5" width="5" height="1.5" rx="0.75" fill="white" opacity="0.7"/>
             <line x1="19.5" y1="18.5" x2="25" y2="24" stroke="#2A7F8E" strokeWidth="2.5" strokeLinecap="round"/>
           </svg>
-          <div>
-            <span className="layout-topbar-title">BillScope Taiwan</span>
-            <span className="layout-topbar-subtitle">Taiwan legislative intelligence</span>
-          </div>
+          <span className="layout-topbar-title">BillScope Taiwan</span>
         </div>
         <div className="layout-topbar-right">
           <SignedOut>
