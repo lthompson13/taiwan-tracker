@@ -31,8 +31,8 @@ function Layout() {
     <div className="layout">
       <header className="layout-topbar">
         <div className="layout-topbar-left">
-          <span className="layout-topbar-title">Taiwan Legislative Tracker</span>
-          <span className="layout-topbar-subtitle">Legislative Yuan monitoring</span>
+          <span className="layout-topbar-title">BillScope Taiwan</span>
+          <span className="layout-topbar-subtitle">Taiwan legislative intelligence</span>
         </div>
         <div className="layout-topbar-right">
           <SignedOut>

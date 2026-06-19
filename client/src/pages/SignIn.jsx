@@ -13,10 +13,10 @@ function SignInPage() {
     }}>
       <div style={{ textAlign: 'center' }}>
         <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--navy)', marginBottom: '4px' }}>
-          Taiwan Legislative Tracker
+          BillScope Taiwan
         </div>
         <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-          Legislative Yuan monitoring
+          Taiwan legislative intelligence
         </div>
       </div>
       <SignIn routing="path" path="/sign-in" signUpUrl="/sign-up" />

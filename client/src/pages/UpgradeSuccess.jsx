@@ -57,7 +57,7 @@ function UpgradeSuccess() {
         <>
           <div style={{ fontSize: '2.5rem', marginBottom: '16px' }}>✓</div>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--navy)', marginBottom: '8px' }}>
-            You're subscribed to Taiwan Legislative Tracker Pro
+            You're subscribed to BillScope Taiwan Pro
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '24px' }}>
             Your account now has full access to editorial summaries, watchlists, and annotations.
