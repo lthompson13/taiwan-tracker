@@ -5,7 +5,7 @@
  *   RESEND_API_KEY     — Resend API key (get one at resend.com)
  *   RESEND_FROM_EMAIL  — Verified sender, e.g. "BillScope Taiwan <digest@billscopetw.com>"
  *                        Defaults to Resend's shared test sender for development.
- *   CLIENT_URL         — Base URL for deep links, e.g. "https://billscopetw.com"
+ *   CLIENT_URL         — Base URL for deep links, e.g. "https://billscopetaiwan.com"
  */
 
 const { Resend } = require('resend');
@@ -56,7 +56,7 @@ function buildDigestHtml(bills, opts = {}) {
   const {
     introText = '',
     weekEnding = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
-    platformUrl = process.env.CLIENT_URL || 'https://billscopetw.com',
+    platformUrl = process.env.CLIENT_URL || 'https://billscopetaiwan.com',
   } = opts;
 
   const billRows = bills

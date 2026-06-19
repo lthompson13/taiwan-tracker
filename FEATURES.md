@@ -82,6 +82,15 @@ Must be done before accepting real paying customers.
 **Status:** Not started
 **What:** Register BillScopeTW.com (if not already owned) and point it to the Railway deployment. Update Railway's custom domain setting, update `CLIENT_URL` env var, and update Stripe webhook success/cancel URLs and Clerk allowed origins to reflect the new domain.
 
+### PL.4 Verify digest sender domain in Resend and update Railway env var
+**Status:** Not started
+**What:** Once BillScopeTW.com is pointed to Railway (PL.3), verify the domain in Resend so digest emails come from a branded address instead of the test sender.
+**Steps:**
+1. In Resend dashboard → **Domains** → add `billscopetaiwan.com` → add the DNS records Resend provides.
+2. Once verified, update the Railway env var: `RESEND_FROM_EMAIL = BillScope Taiwan <digest@billscopetaiwan.com>` (or whichever address you prefer).
+3. Redeploy and send a test digest to confirm delivery.
+**Note:** Until this is done, digest emails send from `onboarding@resend.dev` which only delivers to your own verified email address — real subscribers will not receive them.
+
 ---
 
 ## PRIORITY 4 — Enhancement Features
