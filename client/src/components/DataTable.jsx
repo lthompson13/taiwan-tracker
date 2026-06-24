@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Fragment } from 'react';
 import './DataTable.css';
 
-function DataTable({ columns, data, onRowClick, sortable = true }) {
+function DataTable({ columns, data, onRowClick, sortable = true, expandedRowId, getRowId, renderExpandedContent }) {
   const [sortKey, setSortKey] = useState(null);
   const [sortDir, setSortDir] = useState('asc');
 
@@ -72,19 +72,31 @@ function DataTable({ columns, data, onRowClick, sortable = true }) {
           </tr>
         </thead>
         <tbody>
-          {sortedData.map((row, rowIdx) => (
-            <tr
-              key={row.id || rowIdx}
-              className={`datatable-row ${onRowClick ? 'clickable' : ''}`}
-              onClick={() => onRowClick && onRowClick(row)}
-            >
-              {columns.map((col) => (
-                <td key={col.key} className="datatable-td">
-                  {col.render ? col.render(row[col.key], row) : row[col.key]}
-                </td>
-              ))}
-            </tr>
-          ))}
+          {sortedData.map((row, rowIdx) => {
+            const rowId = getRowId ? getRowId(row) : (row.id ?? rowIdx);
+            const isExpanded = expandedRowId !== undefined && expandedRowId === rowId;
+            return (
+              <Fragment key={row.id ?? rowIdx}>
+                <tr
+                  className={`datatable-row ${onRowClick ? 'clickable' : ''} ${isExpanded ? 'selected' : ''}`}
+                  onClick={() => onRowClick && onRowClick(row)}
+                >
+                  {columns.map((col) => (
+                    <td key={col.key} className="datatable-td">
+                      {col.render ? col.render(row[col.key], row) : row[col.key]}
+                    </td>
+                  ))}
+                </tr>
+                {isExpanded && renderExpandedContent && (
+                  <tr className="datatable-row-expanded">
+                    <td colSpan={columns.length} style={{ padding: 0 }}>
+                      {renderExpandedContent(row)}
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            );
+          })}
         </tbody>
       </table>
     </div>

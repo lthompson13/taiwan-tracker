@@ -9,11 +9,7 @@ const LIMIT = 20;
 
 const expandedStyle = {
   padding: '16px',
-  margin: '0 0 16px 0',
   background: 'var(--bg-subtle)',
-  border: '1px solid var(--border-subtle)',
-  borderTop: 'none',
-  borderRadius: '0 0 var(--radius-md) var(--radius-md)',
   color: 'var(--text-primary)',
   fontSize: '0.9rem',
   lineHeight: 1.6,
@@ -63,8 +59,7 @@ function Interpellations() {
     fetchInterpellations();
   }, [page]);
 
-  // Deep-link support: when the URL hash names an interpellation ID, auto-expand
-  // that row and scroll it into view once data has loaded.
+  // Deep-link support: auto-expand a row when the URL hash names its ID.
   useEffect(() => {
     if (loading || !location.hash) return;
     const targetId = decodeURIComponent(location.hash.slice(1));
@@ -74,7 +69,6 @@ function Interpellations() {
     );
     if (match) {
       setExpandedId(targetId);
-      // Defer scroll until the expanded panel actually renders.
       setTimeout(() => {
         if (expandedRef.current) {
           expandedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -82,6 +76,8 @@ function Interpellations() {
       }, 50);
     }
   }, [loading, interpellations, location.hash]);
+
+  const getRowId = (row) => row.interpellationId || row.subject;
 
   const columns = [
     {
@@ -126,16 +122,36 @@ function Interpellations() {
   ];
 
   const handleRowClick = (row) => {
-    const rowId = row.interpellationId || row.subject;
+    const rowId = getRowId(row);
     setExpandedId((prev) => (prev === rowId ? null : rowId));
   };
+
+  const renderExpandedContent = (item) => (
+    <div ref={expandedRef} style={expandedStyle}>
+      <span style={expandedLabelStyle}>Full description</span>
+      <div style={{ marginBottom: '12px' }}>
+        <strong>Subject:</strong> {item.subject || '—'}
+      </div>
+      {item.description && (
+        <div style={{ marginBottom: '12px' }}>
+          <strong>Description:</strong> {item.description}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginTop: '12px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+        <span>Term: {item.term || '—'}</span>
+        <span>Session: {item.session || '—'}</span>
+        <span>Meeting #: {item.meetingNumber || '—'}</span>
+        <span>Legislators: {Array.isArray(item.legislators) ? item.legislators.join(', ') : (item.legislators || '—')}</span>
+      </div>
+    </div>
+  );
 
   return (
     <div>
       <div style={{ marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid var(--border-subtle)' }}>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Interpellations</h1>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>
-          {total.toLocaleString()} records • Click a row to expand
+          {total.toLocaleString()} records &bull; Click a row to expand
         </p>
       </div>
 
@@ -152,32 +168,14 @@ function Interpellations() {
           {interpellations.length === 0 ? (
             <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)' }}>No data available.</div>
           ) : (
-            <div>
-              <DataTable columns={columns} data={interpellations} onRowClick={handleRowClick} />
-              {expandedId && interpellations.map((item) => {
-                const itemId = item.interpellationId || item.subject;
-                if (itemId !== expandedId) return null;
-                return (
-                  <div key={itemId} ref={expandedRef} style={expandedStyle}>
-                    <span style={expandedLabelStyle}>Full description</span>
-                    <div style={{ marginBottom: '12px' }}>
-                      <strong>Subject:</strong> {item.subject || '—'}
-                    </div>
-                    {item.description && (
-                      <div style={{ marginBottom: '12px' }}>
-                        <strong>Description:</strong> {item.description}
-                      </div>
-                    )}
-                    <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginTop: '12px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                      <span>Term: {item.term || '—'}</span>
-                      <span>Session: {item.session || '—'}</span>
-                      <span>Meeting #: {item.meetingNumber || '—'}</span>
-                      <span>Legislators: {Array.isArray(item.legislators) ? item.legislators.join(', ') : (item.legislators || '—')}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <DataTable
+              columns={columns}
+              data={interpellations}
+              onRowClick={handleRowClick}
+              expandedRowId={expandedId}
+              getRowId={getRowId}
+              renderExpandedContent={renderExpandedContent}
+            />
           )}
         </Panel>
       )}

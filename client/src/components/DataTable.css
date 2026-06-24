@@ -63,6 +63,15 @@
   cursor: pointer;
 }
 
+.datatable-row.selected {
+  background: var(--bg-hover);
+  border-bottom-color: transparent;
+}
+
+.datatable-row-expanded td {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
 .datatable-td {
   padding: 12px 14px;
   color: var(--text-primary);
