@@ -37,6 +37,16 @@ function requireEditorialAccess(req, res, next) {
   next();
 }
 
+// Temporary debug endpoint — no auth required
+router.get('/debug-auth', (req, res) => {
+  const { userId } = getAuth(req);
+  const adminIds = (process.env.ADMIN_USER_IDS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  res.json({ userId, adminIds, match: adminIds.includes(userId) });
+});
+
 router.use(requireEditorialAccess);
 
 // ---------------------------------------------------------------------------
