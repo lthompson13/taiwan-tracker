@@ -65,7 +65,7 @@ function Dashboard() {
   const navigate = useNavigate();
   const { isSubscribed } = useSubscription();
   const [stats, setStats] = useState({
-    legislators: null, bills: null, committees: null, interpellations: null,
+    legislators: null, bills: null, committees: null,
   });
   const [recentBills, setRecentBills] = useState([]);
   const [crossStraitBills, setCrossStraitBills] = useState([]);
@@ -79,25 +79,23 @@ function Dashboard() {
         setLoading(true);
         setError(null);
 
-        const [legRes, billRes, comRes, intRes, recentRes, csRes, newsRes] = await Promise.all([
+        const [legRes, billRes, comRes, recentRes, csRes, newsRes] = await Promise.all([
           fetch('/api/legislators?page=1&limit=1'),
           fetch('/api/bills?page=1&limit=1'),
           fetch('/api/committees?page=1&limit=1'),
-          fetch('/api/interpellations?page=1&limit=1'),
           fetch('/api/bills?page=1&limit=5'),
           fetch('/api/archive?sector=Cross-Strait&limit=5'),
           fetch('/api/news?limit=5'),
         ]);
 
-        const [legData, billData, comData, intData, recentData, csData, newsData] = await Promise.all([
-          legRes.json(), billRes.json(), comRes.json(), intRes.json(), recentRes.json(), csRes.json(), newsRes.json(),
+        const [legData, billData, comData, recentData, csData, newsData] = await Promise.all([
+          legRes.json(), billRes.json(), comRes.json(), recentRes.json(), csRes.json(), newsRes.json(),
         ]);
 
         setStats({
           legislators: legData.total ?? 0,
           bills: billData.total ?? 0,
           committees: comData.total ?? 0,
-          interpellations: intData.total ?? 0,
         });
         setRecentBills(recentData.bills || []);
         setCrossStraitBills(csData.bills || []);
@@ -126,7 +124,6 @@ function Dashboard() {
     { label: 'Legislators', value: stats.legislators },
     { label: 'Bills', value: stats.bills },
     { label: 'Committees', value: stats.committees },
-    { label: 'Interpellations', value: stats.interpellations },
   ];
 
   return (
