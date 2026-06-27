@@ -25,7 +25,7 @@ const features = {
 function Upgrade() {
   const navigate = useNavigate();
   const { isSignedIn } = useAuth();
-  const { isSubscribed } = useSubscription();
+  const { isSubscribed, isTrial, trialDaysLeft } = useSubscription();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -68,7 +68,16 @@ function Upgrade() {
         </p>
       </div>
 
-      {isSubscribed && (
+      {isTrial && (
+        <div style={{ padding: '14px 18px', background: 'var(--bg-subtle)', border: '1px solid var(--teal)', borderRadius: 'var(--radius-md)', marginBottom: '24px', color: 'var(--teal)', fontSize: '0.875rem', fontWeight: 500 }}>
+          ◎ You are on a free trial.{trialDaysLeft !== null ? ` ${trialDaysLeft} day${trialDaysLeft !== 1 ? 's' : ''} remaining.` : ''}{' '}
+          <button onClick={handleManageBilling} style={{ background: 'none', border: 'none', color: 'var(--teal)', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 500 }}>
+            Manage billing →
+          </button>
+        </div>
+      )}
+
+      {isSubscribed && !isTrial && (
         <div style={{ padding: '14px 18px', background: 'var(--success-bg)', border: '1px solid var(--success)', borderRadius: 'var(--radius-md)', marginBottom: '24px', color: 'var(--success)', fontSize: '0.875rem', fontWeight: 500 }}>
           ✓ You have an active Pro subscription.{' '}
           <button onClick={handleManageBilling} style={{ background: 'none', border: 'none', color: 'var(--success)', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 500 }}>
@@ -100,9 +109,12 @@ function Upgrade() {
             PRO
           </div>
           <div style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '4px' }}>Pro</div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '4px' }}>
             <span style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--navy)' }}>$99</span>
             <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>/month</span>
+          </div>
+          <div style={{ fontSize: '0.8rem', color: 'var(--teal)', fontWeight: 600, marginBottom: '16px' }}>
+            First month free — no charge until day 31
           </div>
           <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 24px 0' }}>
             {features.paid.map((f) => (
@@ -130,7 +142,7 @@ function Upgrade() {
                   cursor: loading ? 'not-allowed' : 'pointer',
                 }}
               >
-                {loading ? 'Redirecting to checkout…' : 'Subscribe — $99/month'}
+                {loading ? 'Redirecting to checkout…' : 'Start free trial — $99/month after 30 days'}
               </button>
             ) : (
               <SignInButton mode="modal" redirectUrl="/upgrade">
@@ -180,7 +192,7 @@ function Upgrade() {
       )}
 
       <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-        Cancel anytime. No long-term commitment.
+        Free for 30 days, then $99/month. Cancel anytime.
       </p>
     </div>
   );

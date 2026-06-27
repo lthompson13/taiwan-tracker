@@ -53,7 +53,10 @@ router.post('/checkout', requireAuth, async (req, res) => {
       success_url: `${CLIENT_URL}/upgrade/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${CLIENT_URL}/upgrade`,
       metadata: { clerkUserId: userId },
-      subscription_data: { metadata: { clerkUserId: userId } },
+      subscription_data: {
+        metadata: { clerkUserId: userId },
+        trial_period_days: 30,
+      },
     });
 
     res.json({ url: session.url });
@@ -103,9 +106,10 @@ router.post('/webhook', async (req, res) => {
             subscriptionStatus: subscription.status,
             stripeCustomerId: session.customer,
             stripeSubscriptionId: session.subscription,
+            trialEnd: subscription.trial_end || null,
           },
         });
-        console.log(`[stripe/webhook] checkout complete — user ${clerkUserId} subscribed`);
+        console.log(`[stripe/webhook] checkout complete — user ${clerkUserId} status: ${subscription.status}`);
         break;
       }
 
@@ -117,9 +121,18 @@ router.post('/webhook', async (req, res) => {
         await clerkClient.users.updateUserMetadata(clerkUserId, {
           publicMetadata: {
             subscriptionStatus: sub.status,
+            trialEnd: sub.trial_end || null,
           },
         });
         console.log(`[stripe/webhook] subscription updated — user ${clerkUserId}, status: ${sub.status}`);
+        break;
+      }
+
+      case 'customer.subscription.trial_will_end': {
+        // Fires 3 days before trial ends — log for now, could send a reminder email here
+        const sub = event.data.object;
+        const clerkUserId = sub.metadata?.clerkUserId;
+        console.log(`[stripe/webhook] trial ending soon — user ${clerkUserId}`);
         break;
       }
 
@@ -131,6 +144,7 @@ router.post('/webhook', async (req, res) => {
         await clerkClient.users.updateUserMetadata(clerkUserId, {
           publicMetadata: {
             subscriptionStatus: 'cancelled',
+            trialEnd: null,
           },
         });
         console.log(`[stripe/webhook] subscription cancelled — user ${clerkUserId}`);
