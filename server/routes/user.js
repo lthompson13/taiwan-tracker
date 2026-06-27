@@ -12,6 +12,8 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth, getUser, isSubscriber } = require('../lib/auth');
 const { getDb } = require('../lib/db');
+const { generateSummary } = require('../lib/generateSummary');
+const { upsertSummary } = require('../lib/summaries');
 
 const VALID_STANCES = ['support', 'oppose', 'monitor'];
 const VALID_PRIORITIES = ['high', 'medium', 'low'];
@@ -157,6 +159,36 @@ router.delete('/bills/:billId', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: 'No annotations found' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/user/summaries/:billId — generate + save an AI summary (Pro users)
+// ---------------------------------------------------------------------------
+router.post('/summaries/:billId', async (req, res) => {
+  const db = getDb();
+  if (!db) return res.status(503).json({ error: 'Database not configured' });
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return res.status(503).json({ error: 'AI summarisation is not configured on this server' });
+  }
+
+  const { billId } = req.params;
+
+  // Don't overwrite an existing summary
+  const existing = await db.billSummary.findUnique({ where: { billId } });
+  if (existing) {
+    return res.status(409).json({ error: 'A summary already exists for this bill', summary: existing });
+  }
+
+  try {
+    const meta = req.body || {};
+    const { summary, searchTerms } = await generateSummary(billId, meta);
+    const saved = await upsertSummary(billId, summary, searchTerms);
+    res.json(saved);
+  } catch (err) {
+    console.error('[user/summaries] generation error:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

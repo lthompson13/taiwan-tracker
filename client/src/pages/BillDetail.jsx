@@ -150,6 +150,10 @@ function BillDetail() {
   const [editorialError, setEditorialError]       = useState(null);
   const [editorialSaved, setEditorialSaved]       = useState(false);
 
+  // User-triggered AI summary generation (Pro)
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError]     = useState(null);
+
   useEffect(() => {
     const fetchBill = async () => {
       try {
@@ -253,6 +257,33 @@ function BillDetail() {
       setEditorialError('Delete failed: ' + err.message);
     } finally {
       setEditorialLoading(false);
+    }
+  };
+
+  const handleGenerateUserSummary = async () => {
+    setSummaryLoading(true);
+    setSummaryError(null);
+    try {
+      const res = await fetch(`/api/user/summaries/${encodeURIComponent(bill.billId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          sectors:  bill.sectors,
+          category: bill.category,
+          status:   bill.status,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      setBill((b) => ({
+        ...b,
+        summary: { summary: data.summary, updatedAt: new Date().toISOString().slice(0, 10) },
+      }));
+    } catch (err) {
+      setSummaryError('Generation failed: ' + err.message);
+    } finally {
+      setSummaryLoading(false);
     }
   };
 
@@ -495,6 +526,30 @@ function BillDetail() {
                   Updated {bill.summary.updatedAt}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Pro user — generate summary when none exists */}
+          {isSubscribed && !isAdmin && !bill.summary && (
+            <div style={{ border: '1px solid var(--border-default)', borderRadius: 'var(--radius-md)', padding: '16px 20px', marginBottom: '20px', background: 'var(--bg-subtle)' }}>
+              <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '8px' }}>
+                Why It Matters
+              </div>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: '0 0 14px 0', lineHeight: 1.5 }}>
+                No summary has been written for this bill yet. Generate one now using AI.
+              </p>
+              {summaryError && (
+                <div style={{ padding: '8px 12px', background: 'var(--danger-bg)', color: 'var(--danger)', borderRadius: 'var(--radius-sm)', fontSize: '0.825rem', marginBottom: '10px' }}>
+                  {summaryError}
+                </div>
+              )}
+              <button
+                onClick={handleGenerateUserSummary}
+                disabled={summaryLoading}
+                style={{ padding: '7px 16px', background: summaryLoading ? 'var(--border-default)' : 'var(--navy)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '0.825rem', fontWeight: 600, cursor: summaryLoading ? 'not-allowed' : 'pointer' }}
+              >
+                {summaryLoading ? 'Generating…' : '✦ Generate AI Summary'}
+              </button>
             </div>
           )}
 
