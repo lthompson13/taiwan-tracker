@@ -5,7 +5,6 @@ import Legislators from './pages/Legislators';
 import LegislatorDetail from './pages/LegislatorDetail';
 import Bills from './pages/Bills';
 import BillDetail from './pages/BillDetail';
-import Interpellations from './pages/Interpellations';
 import Committees from './pages/Committees';
 import Activity from './pages/Activity';
 import Watchlist from './pages/Watchlist';
@@ -35,7 +34,6 @@ function App() {
           <Route path="legislators/:name" element={<LegislatorDetail />} />
           <Route path="bills" element={<Bills />} />
           <Route path="bills/:id" element={<BillDetail />} />
-          <Route path="interpellations" element={<Interpellations />} />
           <Route path="committees" element={<Committees />} />
           <Route path="activity" element={<Activity />} />
           <Route path="watchlist" element={<Watchlist />} />

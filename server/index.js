@@ -35,7 +35,6 @@ app.get('/api/translation-status', (req, res) => {
 app.use('/api/legislators', require('./routes/legislators'));
 app.use('/api/bills', require('./routes/bills'));
 app.use('/api/committees', require('./routes/committees'));
-app.use('/api/interpellations', require('./routes/interpellations'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/archive', require('./routes/archive'));
 app.use('/api/user', require('./routes/user'));
