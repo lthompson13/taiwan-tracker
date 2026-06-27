@@ -38,6 +38,11 @@ function Upgrade() {
         credentials: 'include',
       });
       const data = await res.json();
+      if (res.status === 409 && data.error === 'already_subscribed') {
+        // Subscription exists in Stripe but metadata wasn't synced — reload to pick up updated metadata
+        window.location.reload();
+        return;
+      }
       if (!res.ok) throw new Error(data.error || 'Failed to start checkout');
       window.location.href = data.url;
     } catch (err) {

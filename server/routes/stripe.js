@@ -36,12 +36,31 @@ router.post('/checkout', requireAuth, async (req, res) => {
   }
 
   try {
-    // Get the user's email from Clerk to pre-fill Stripe checkout
     const user = await clerkClient.users.getUser(userId);
     const email = user.emailAddresses?.[0]?.emailAddress;
-
-    // Check if user already has a Stripe customer ID
     const existingCustomerId = user.publicMetadata?.stripeCustomerId;
+    const existingSubId = user.publicMetadata?.stripeSubscriptionId;
+
+    // If user already has a subscription, check if it's still active before creating another
+    if (existingSubId) {
+      try {
+        const existingSub = await stripe.subscriptions.retrieve(existingSubId);
+        if (['active', 'trialing', 'past_due'].includes(existingSub.status)) {
+          // Sync metadata in case webhook was missed
+          await clerkClient.users.updateUserMetadata(userId, {
+            publicMetadata: {
+              subscriptionStatus: existingSub.status,
+              stripeCustomerId: existingSub.customer,
+              stripeSubscriptionId: existingSub.id,
+              trialEnd: existingSub.trial_end || null,
+            },
+          });
+          return res.status(409).json({ error: 'already_subscribed', status: existingSub.status });
+        }
+      } catch (_) {
+        // Subscription not found in Stripe — proceed to create a new one
+      }
+    }
 
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
@@ -89,8 +108,12 @@ router.post('/webhook', async (req, res) => {
     event = stripe.webhooks.constructEvent(req.body, sig, secret);
   } catch (err) {
     console.error('[stripe/webhook] signature verification failed:', err.message);
+    console.error('[stripe/webhook] sig header present:', Boolean(sig));
+    console.error('[stripe/webhook] body length:', req.body?.length);
     return res.status(400).send(`Webhook error: ${err.message}`);
   }
+
+  console.log(`[stripe/webhook] received event: ${event.type}`);
 
   try {
     switch (event.type) {
