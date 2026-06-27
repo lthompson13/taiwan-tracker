@@ -48,7 +48,8 @@ async function isSubscriber(userId) {
   if (!userId) return false;
   try {
     const user = await clerkClient.users.getUser(userId);
-    return user.publicMetadata?.subscriptionStatus === 'active';
+    const status = user.publicMetadata?.subscriptionStatus;
+    return status === 'active' || status === 'trialing';
   } catch {
     return false;
   }
