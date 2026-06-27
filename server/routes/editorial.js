@@ -293,4 +293,77 @@ router.post('/digest/send', async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// GET /api/editorial/batch-generate
+// SSE stream — generates summaries for all bills with sectors but no summary.
+// Sends JSON events: { type: 'start'|'progress'|'complete'|'error', ... }
+// ---------------------------------------------------------------------------
+router.get('/batch-generate', async (req, res) => {
+  const db = getDb();
+  if (!db) return res.status(503).json({ error: 'Database not configured' });
+  if (!process.env.ANTHROPIC_API_KEY) return res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured' });
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+
+  const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+
+  try {
+    // Find bills that have sector tags but no summary yet
+    const existing = await db.billSummary.findMany({ select: { billId: true } });
+    const doneIds = new Set(existing.map((s) => s.billId));
+
+    const bills = await db.bill.findMany({
+      where: { sectors: { isEmpty: false } },
+      select: { billId: true, billName: true, sectors: true, category: true, status: true },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    const eligible = bills.filter((b) => !doneIds.has(b.billId));
+    const total = eligible.length;
+
+    send({ type: 'start', total });
+
+    if (total === 0) {
+      send({ type: 'complete', done: 0, errors: 0 });
+      res.end();
+      return;
+    }
+
+    let done = 0;
+    let errors = 0;
+
+    for (let i = 0; i < eligible.length; i++) {
+      if (res.destroyed) break;
+
+      const bill = eligible[i];
+      send({ type: 'progress', current: i + 1, total, billId: bill.billId, billName: bill.billName, status: 'generating' });
+
+      try {
+        const { summary, searchTerms } = await generateSummary(bill.billId, {
+          sectors: bill.sectors,
+          category: bill.category,
+          status: bill.status,
+        });
+        await upsertSummary(bill.billId, summary, searchTerms);
+        done++;
+        send({ type: 'progress', current: i + 1, total, billId: bill.billId, billName: bill.billName, status: 'done' });
+      } catch (err) {
+        errors++;
+        send({ type: 'progress', current: i + 1, total, billId: bill.billId, billName: bill.billName, status: 'error', error: err.message });
+      }
+    }
+
+    send({ type: 'complete', done, errors });
+    res.end();
+  } catch (err) {
+    console.error('[editorial/batch-generate] error:', err.message);
+    send({ type: 'error', error: err.message });
+    res.end();
+  }
+});
+
 module.exports = router;

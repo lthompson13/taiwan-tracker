@@ -96,6 +96,15 @@ function Admin() {
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState(null);
 
+  // System — batch summary generation
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchTotal, setBatchTotal] = useState(null);
+  const [batchCurrent, setBatchCurrent] = useState(0);
+  const [batchCurrentBill, setBatchCurrentBill] = useState(null);
+  const [batchDone, setBatchDone] = useState(0);
+  const [batchErrors, setBatchErrors] = useState(0);
+  const [batchComplete, setBatchComplete] = useState(false);
+
   // Digest tab
   const [digestSelected, setDigestSelected] = useState(new Set());
   const [digestIntro, setDigestIntro] = useState('');
@@ -311,6 +320,42 @@ function Admin() {
     } finally {
       setSyncing(false);
     }
+  }
+
+  function startBatchGenerate() {
+    setBatchRunning(true);
+    setBatchComplete(false);
+    setBatchTotal(null);
+    setBatchCurrent(0);
+    setBatchCurrentBill(null);
+    setBatchDone(0);
+    setBatchErrors(0);
+
+    const es = new EventSource('/api/editorial/batch-generate', { withCredentials: true });
+
+    es.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'start') {
+        setBatchTotal(msg.total);
+      } else if (msg.type === 'progress') {
+        setBatchCurrent(msg.current);
+        setBatchCurrentBill(msg.billName || msg.billId);
+        if (msg.status === 'done') setBatchDone((n) => n + 1);
+        if (msg.status === 'error') setBatchErrors((n) => n + 1);
+      } else if (msg.type === 'complete' || msg.type === 'error') {
+        setBatchComplete(true);
+        setBatchRunning(false);
+        setBatchCurrentBill(null);
+        es.close();
+        refreshStats();
+      }
+    };
+
+    es.onerror = () => {
+      setBatchRunning(false);
+      setBatchComplete(true);
+      es.close();
+    };
   }
 
   async function refreshStats() {
@@ -982,6 +1027,55 @@ function Admin() {
               >
                 {syncMsg}
               </div>
+            )}
+          </Panel>
+
+          <Panel title="Batch AI summaries">
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', margin: '0 0 16px 0' }}>
+              Generates "Why It Matters" summaries for all bills with sector tags that don't have one yet.
+              Runs sequentially — expect ~5 seconds per bill.
+            </p>
+
+            {!batchRunning && !batchComplete && (
+              <button style={btn('primary')} onClick={startBatchGenerate}>
+                ✦ Generate all missing summaries
+              </button>
+            )}
+
+            {(batchRunning || batchComplete) && batchTotal !== null && (
+              <div>
+                {/* Progress bar */}
+                <div style={{ background: 'var(--border-subtle)', borderRadius: '999px', height: '8px', marginBottom: '10px', overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%',
+                    borderRadius: '999px',
+                    background: batchComplete ? '#15803d' : PURPLE,
+                    width: `${batchTotal > 0 ? Math.round((batchCurrent / batchTotal) * 100) : 0}%`,
+                    transition: 'width 0.3s ease',
+                  }} />
+                </div>
+
+                <div style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                  {batchComplete
+                    ? `Complete — ${batchDone} generated, ${batchErrors} error${batchErrors !== 1 ? 's' : ''}`
+                    : `${batchCurrent} / ${batchTotal} — ${batchCurrentBill || 'processing…'}`}
+                </div>
+
+                {batchComplete && (
+                  <button
+                    style={{ ...btn('secondary'), marginTop: '8px', fontSize: '0.8rem' }}
+                    onClick={() => { setBatchComplete(false); setBatchTotal(null); }}
+                  >
+                    Run again
+                  </button>
+                )}
+              </div>
+            )}
+
+            {batchTotal === 0 && batchComplete && (
+              <p style={{ fontSize: '0.875rem', color: '#15803d', margin: '8px 0 0' }}>
+                All tagged bills already have summaries.
+              </p>
             )}
           </Panel>
         </div>
