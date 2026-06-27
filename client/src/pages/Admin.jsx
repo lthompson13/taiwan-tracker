@@ -104,6 +104,10 @@ function Admin() {
   const [batchDone, setBatchDone] = useState(0);
   const [batchErrors, setBatchErrors] = useState(0);
   const [batchComplete, setBatchComplete] = useState(false);
+  const [batchOptions, setBatchOptions] = useState(null);
+  const [batchOptionsLoading, setBatchOptionsLoading] = useState(false);
+  const [batchFilterTerm, setBatchFilterTerm] = useState('');
+  const [batchFilterSectors, setBatchFilterSectors] = useState([]);
 
   // Digest tab
   const [digestSelected, setDigestSelected] = useState(new Set());
@@ -115,6 +119,12 @@ function Admin() {
   useEffect(() => {
     if (isLoaded && isSignedIn) loadAll();
   }, [isLoaded, isSignedIn]);
+
+  useEffect(() => {
+    if (tab === 'system' && isLoaded && isSignedIn && !batchOptions) {
+      loadBatchOptions();
+    }
+  }, [tab, isLoaded, isSignedIn]); // batchOptions omitted intentionally — load once
 
   async function loadAll() {
     setLoading(true);
@@ -331,7 +341,11 @@ function Admin() {
     setBatchDone(0);
     setBatchErrors(0);
 
-    const es = new EventSource('/api/editorial/batch-generate', { withCredentials: true });
+    const params = new URLSearchParams();
+    if (batchFilterTerm) params.set('term', batchFilterTerm);
+    if (batchFilterSectors.length > 0) params.set('sectors', batchFilterSectors.join(','));
+    const qs = params.toString();
+    const es = new EventSource(`/api/editorial/batch-generate${qs ? '?' + qs : ''}`, { withCredentials: true });
 
     es.onmessage = (e) => {
       const msg = JSON.parse(e.data);
@@ -363,6 +377,16 @@ function Admin() {
       const res = await fetch('/api/editorial/sync/status', { credentials: 'include' });
       if (res.ok) setSyncStatus(await res.json());
     } catch {}
+  }
+
+  async function loadBatchOptions() {
+    setBatchOptionsLoading(true);
+    try {
+      const res = await fetch('/api/editorial/batch-options', { credentials: 'include' });
+      if (res.ok) setBatchOptions(await res.json());
+    } finally {
+      setBatchOptionsLoading(false);
+    }
   }
 
   // ── Digest actions ────────────────────────────────────────────────────────
@@ -1032,50 +1056,130 @@ function Admin() {
 
           <Panel title="Batch AI summaries">
             <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', margin: '0 0 16px 0' }}>
-              Generates "Why It Matters" summaries for all bills with sector tags that don't have one yet.
-              Runs sequentially — expect ~5 seconds per bill.
+              Generates "Why It Matters" summaries for tagged bills that don't have one yet.
+              Filter by term or sector to limit the run. Expect ~5 seconds per bill.
             </p>
 
+            {/* Filters — shown only when not running */}
             {!batchRunning && !batchComplete && (
-              <button style={btn('primary')} onClick={startBatchGenerate}>
-                ✦ Generate all missing summaries
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '18px' }}>
+
+                {/* Term dropdown */}
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '5px' }}>
+                    Term
+                  </div>
+                  <select
+                    value={batchFilterTerm}
+                    onChange={(e) => setBatchFilterTerm(e.target.value)}
+                    disabled={batchOptionsLoading}
+                    style={{ ...inputStyle, width: 'auto', minWidth: '160px' }}
+                  >
+                    <option value="">All terms</option>
+                    {(batchOptions?.terms || []).map((t) => (
+                      <option key={t} value={String(t)}>Term {t}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Sector pill toggles */}
+                {batchOptions?.sectors?.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '5px' }}>
+                      Sector{batchFilterSectors.length > 0 ? ` (${batchFilterSectors.length} selected)` : ' — leave blank for all'}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {batchOptions.sectors.map((s) => {
+                        const active = batchFilterSectors.includes(s);
+                        return (
+                          <button
+                            key={s}
+                            onClick={() => setBatchFilterSectors((prev) =>
+                              active ? prev.filter((x) => x !== s) : [...prev, s]
+                            )}
+                            style={{
+                              padding: '4px 12px',
+                              borderRadius: '999px',
+                              border: `1px solid ${active ? PURPLE : 'var(--border-default)'}`,
+                              background: active ? PURPLE_BG : 'transparent',
+                              color: active ? PURPLE : 'var(--text-muted)',
+                              fontSize: '0.775rem',
+                              fontWeight: active ? 700 : 400,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {s}
+                          </button>
+                        );
+                      })}
+                      {batchFilterSectors.length > 0 && (
+                        <button
+                          onClick={() => setBatchFilterSectors([])}
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: '999px',
+                            border: '1px solid var(--border-default)',
+                            background: 'transparent',
+                            color: 'var(--text-muted)',
+                            fontSize: '0.775rem',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Eligible count hint */}
+                {batchOptions && !batchOptionsLoading && (
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    {batchOptions.totalEligible} bill{batchOptions.totalEligible !== 1 ? 's' : ''} eligible overall
+                    {(batchFilterTerm || batchFilterSectors.length > 0) && ' — filtered count shown on start'}
+                  </div>
+                )}
+
+                <button style={{ ...btn('primary'), alignSelf: 'flex-start' }} onClick={startBatchGenerate}>
+                  ✦ Generate summaries
+                </button>
+              </div>
             )}
 
+            {/* Progress */}
             {(batchRunning || batchComplete) && batchTotal !== null && (
               <div>
-                {/* Progress bar */}
-                <div style={{ background: 'var(--border-subtle)', borderRadius: '999px', height: '8px', marginBottom: '10px', overflow: 'hidden' }}>
-                  <div style={{
-                    height: '100%',
-                    borderRadius: '999px',
-                    background: batchComplete ? '#15803d' : PURPLE,
-                    width: `${batchTotal > 0 ? Math.round((batchCurrent / batchTotal) * 100) : 0}%`,
-                    transition: 'width 0.3s ease',
-                  }} />
-                </div>
-
-                <div style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                  {batchComplete
-                    ? `Complete — ${batchDone} generated, ${batchErrors} error${batchErrors !== 1 ? 's' : ''}`
-                    : `${batchCurrent} / ${batchTotal} — ${batchCurrentBill || 'processing…'}`}
-                </div>
-
+                {batchTotal === 0 ? (
+                  <p style={{ fontSize: '0.875rem', color: '#15803d', margin: '0 0 10px' }}>
+                    No eligible bills matched the selected filters.
+                  </p>
+                ) : (
+                  <>
+                    <div style={{ background: 'var(--border-subtle)', borderRadius: '999px', height: '8px', marginBottom: '10px', overflow: 'hidden' }}>
+                      <div style={{
+                        height: '100%',
+                        borderRadius: '999px',
+                        background: batchComplete ? '#15803d' : PURPLE,
+                        width: `${batchTotal > 0 ? Math.round((batchCurrent / batchTotal) * 100) : 0}%`,
+                        transition: 'width 0.3s ease',
+                      }} />
+                    </div>
+                    <div style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                      {batchComplete
+                        ? `Complete — ${batchDone} generated, ${batchErrors} error${batchErrors !== 1 ? 's' : ''}`
+                        : `${batchCurrent} / ${batchTotal} — ${batchCurrentBill || 'processing…'}`}
+                    </div>
+                  </>
+                )}
                 {batchComplete && (
                   <button
-                    style={{ ...btn('secondary'), marginTop: '8px', fontSize: '0.8rem' }}
-                    onClick={() => { setBatchComplete(false); setBatchTotal(null); }}
+                    style={{ ...btn('secondary'), fontSize: '0.8rem' }}
+                    onClick={() => { setBatchComplete(false); setBatchTotal(null); loadBatchOptions(); }}
                   >
                     Run again
                   </button>
                 )}
               </div>
-            )}
-
-            {batchTotal === 0 && batchComplete && (
-              <p style={{ fontSize: '0.875rem', color: '#15803d', margin: '8px 0 0' }}>
-                All tagged bills already have summaries.
-              </p>
             )}
           </Panel>
         </div>

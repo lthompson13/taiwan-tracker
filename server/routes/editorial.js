@@ -294,8 +294,45 @@ router.post('/digest/send', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /api/editorial/batch-options
+// Returns available terms, sectors, and total eligible count for the batch UI.
+// ---------------------------------------------------------------------------
+router.get('/batch-options', async (req, res) => {
+  const db = getDb();
+  if (!db) return res.status(503).json({ error: 'Database not configured' });
+
+  try {
+    const existing = await db.billSummary.findMany({ select: { billId: true } });
+    const doneIds = new Set(existing.map((s) => s.billId));
+
+    const bills = await db.bill.findMany({
+      where: { sectors: { isEmpty: false } },
+      select: { billId: true, term: true, sectors: true },
+    });
+
+    const eligible = bills.filter((b) => !doneIds.has(b.billId));
+
+    const termsSet = new Set();
+    const sectorsSet = new Set();
+    for (const bill of eligible) {
+      if (bill.term != null) termsSet.add(bill.term);
+      for (const s of bill.sectors) sectorsSet.add(s);
+    }
+
+    res.json({
+      terms: [...termsSet].sort((a, b) => b - a),
+      sectors: [...sectorsSet].sort(),
+      totalEligible: eligible.length,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // GET /api/editorial/batch-generate
-// SSE stream — generates summaries for all bills with sectors but no summary.
+// SSE stream — generates summaries for bills with sectors but no summary yet.
+// Optional query params: term=11, sectors=Healthcare,Technology
 // Sends JSON events: { type: 'start'|'progress'|'complete'|'error', ... }
 // ---------------------------------------------------------------------------
 router.get('/batch-generate', async (req, res) => {
@@ -312,12 +349,21 @@ router.get('/batch-generate', async (req, res) => {
   const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
 
   try {
+    const termFilter = req.query.term ? parseInt(req.query.term, 10) : null;
+    const sectorFilter = req.query.sectors
+      ? req.query.sectors.split(',').map((s) => s.trim()).filter(Boolean)
+      : null;
+
     // Find bills that have sector tags but no summary yet
     const existing = await db.billSummary.findMany({ select: { billId: true } });
     const doneIds = new Set(existing.map((s) => s.billId));
 
+    const where = { sectors: { isEmpty: false } };
+    if (termFilter) where.term = termFilter;
+    if (sectorFilter?.length > 0) where.sectors = { hasSome: sectorFilter };
+
     const bills = await db.bill.findMany({
-      where: { sectors: { isEmpty: false } },
+      where,
       select: { billId: true, billName: true, sectors: true, category: true, status: true },
       orderBy: { updatedAt: 'desc' },
     });

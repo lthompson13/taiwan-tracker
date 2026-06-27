@@ -141,6 +141,15 @@ router.post('/webhook', async (req, res) => {
         const clerkUserId = sub.metadata?.clerkUserId;
         if (!clerkUserId) break;
 
+        // Only update if this is the user's current subscription —
+        // prevents a stale/duplicate subscription from overwriting live status.
+        const clerkUserUpd = await clerkClient.users.getUser(clerkUserId);
+        const currentSubId = clerkUserUpd.publicMetadata?.stripeSubscriptionId;
+        if (currentSubId && currentSubId !== sub.id) {
+          console.log(`[stripe/webhook] subscription.updated ignored — event sub ${sub.id} != current sub ${currentSubId}`);
+          break;
+        }
+
         await clerkClient.users.updateUserMetadata(clerkUserId, {
           publicMetadata: {
             subscriptionStatus: sub.status,
@@ -164,13 +173,21 @@ router.post('/webhook', async (req, res) => {
         const clerkUserId = sub.metadata?.clerkUserId;
         if (!clerkUserId) break;
 
+        // Only cancel if this is the user's current subscription.
+        const clerkUserDel = await clerkClient.users.getUser(clerkUserId);
+        const currentSubIdDel = clerkUserDel.publicMetadata?.stripeSubscriptionId;
+        if (currentSubIdDel && currentSubIdDel !== sub.id) {
+          console.log(`[stripe/webhook] subscription.deleted ignored — event sub ${sub.id} != current sub ${currentSubIdDel}`);
+          break;
+        }
+
         await clerkClient.users.updateUserMetadata(clerkUserId, {
           publicMetadata: {
-            subscriptionStatus: 'cancelled',
+            subscriptionStatus: 'canceled',
             trialEnd: null,
           },
         });
-        console.log(`[stripe/webhook] subscription cancelled — user ${clerkUserId}`);
+        console.log(`[stripe/webhook] subscription canceled — user ${clerkUserId}`);
         break;
       }
 
