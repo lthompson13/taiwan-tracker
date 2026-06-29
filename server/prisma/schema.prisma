@@ -44,6 +44,34 @@ model UserBill {
   @@index([userId])
 }
 
+// User-defined tags for organizing bills (Pro feature).
+model UserTag {
+  id        Int           @id @default(autoincrement())
+  userId    String
+  name      String
+  createdAt DateTime      @default(now())
+
+  billTags  UserBillTag[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+// Junction table: which tags a user has applied to which bills.
+model UserBillTag {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  billId    String
+  tagId     Int
+  createdAt DateTime @default(now())
+
+  tag       UserTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, billId, tagId])
+  @@index([userId])
+  @@index([userId, billId])
+}
+
 // Locally synced bills from the Legislative Yuan API.
 // Enables full-text search and filtering that the upstream API cannot provide.
 model Bill {

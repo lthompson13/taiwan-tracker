@@ -154,6 +154,13 @@ function BillDetail() {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError]     = useState(null);
 
+  // Tags (Pro)
+  const [allTags, setAllTags]       = useState([]);
+  const [billTags, setBillTags]     = useState([]);
+  const [tagInput, setTagInput]     = useState('');
+  const [showNewTag, setShowNewTag] = useState(false);
+  const [tagLoading, setTagLoading] = useState(false);
+
   useEffect(() => {
     const fetchBill = async () => {
       try {
@@ -183,6 +190,17 @@ function BillDetail() {
         }
       })
       .catch(() => {});
+  }, [isSignedIn, id]);
+
+  useEffect(() => {
+    if (!isSignedIn || !id) return;
+    Promise.all([
+      fetch('/api/user/tags', { credentials: 'include' }).then((r) => r.ok ? r.json() : []),
+      fetch(`/api/user/tags/bills/${encodeURIComponent(id)}`, { credentials: 'include' }).then((r) => r.ok ? r.json() : []),
+    ]).then(([tags, applied]) => {
+      setAllTags(Array.isArray(tags) ? tags : []);
+      setBillTags(Array.isArray(applied) ? applied : []);
+    }).catch(() => {});
   }, [isSignedIn, id]);
 
   const handleGenerateDraft = async () => {
@@ -284,6 +302,47 @@ function BillDetail() {
       setSummaryError('Generation failed: ' + err.message);
     } finally {
       setSummaryLoading(false);
+    }
+  };
+
+  const handleToggleTag = async (tag) => {
+    const applied = billTags.some((t) => t.id === tag.id);
+    setTagLoading(true);
+    try {
+      const method = applied ? 'DELETE' : 'POST';
+      await fetch(`/api/user/tags/bills/${encodeURIComponent(id)}/${tag.id}`, { method, credentials: 'include' });
+      setBillTags((prev) => applied ? prev.filter((t) => t.id !== tag.id) : [...prev, tag].sort((a, b) => a.name.localeCompare(b.name)));
+    } catch (err) {
+      console.error('[tags] toggle error:', err.message);
+    } finally {
+      setTagLoading(false);
+    }
+  };
+
+  const handleCreateTag = async () => {
+    const name = tagInput.trim();
+    if (!name) return;
+    setTagLoading(true);
+    try {
+      const res = await fetch('/api/user/tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ name }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      const newTag = data;
+      setAllTags((prev) => [...prev, newTag].sort((a, b) => a.name.localeCompare(b.name)));
+      // Auto-apply to this bill
+      await fetch(`/api/user/tags/bills/${encodeURIComponent(id)}/${newTag.id}`, { method: 'POST', credentials: 'include' });
+      setBillTags((prev) => [...prev, newTag].sort((a, b) => a.name.localeCompare(b.name)));
+      setTagInput('');
+      setShowNewTag(false);
+    } catch (err) {
+      console.error('[tags] create error:', err.message);
+    } finally {
+      setTagLoading(false);
     }
   };
 
@@ -436,6 +495,65 @@ function BillDetail() {
               <button onClick={handleSaveNote} disabled={savingNote || noteInput === (annotation.note || '')} style={{ padding: '5px 14px', background: 'var(--navy)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '0.8rem', fontWeight: 500, cursor: savingNote || noteInput === (annotation.note || '') ? 'not-allowed' : 'pointer', opacity: savingNote || noteInput === (annotation.note || '') ? 0.5 : 1 }}>
                 {savingNote ? 'Saving…' : 'Save note'}
               </button>
+            </div>
+          </div>
+
+          {/* Tags */}
+          <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)' }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500, marginBottom: '8px' }}>Tags</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+              {/* Applied tags — click to remove */}
+              {billTags.map((tag) => (
+                <button
+                  key={tag.id}
+                  onClick={() => handleToggleTag(tag)}
+                  disabled={tagLoading}
+                  title="Click to remove"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 10px', borderRadius: '999px', border: '1px solid var(--navy)', background: 'var(--navy-light)', color: 'var(--navy)', fontSize: '0.775rem', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  {tag.name} <span style={{ fontSize: '0.9rem', lineHeight: 1 }}>×</span>
+                </button>
+              ))}
+
+              {/* Unapplied tags — click to apply */}
+              {allTags.filter((t) => !billTags.some((bt) => bt.id === t.id)).map((tag) => (
+                <button
+                  key={tag.id}
+                  onClick={() => handleToggleTag(tag)}
+                  disabled={tagLoading}
+                  title="Click to apply"
+                  style={{ padding: '3px 10px', borderRadius: '999px', border: '1px solid var(--border-default)', background: 'transparent', color: 'var(--text-muted)', fontSize: '0.775rem', cursor: 'pointer' }}
+                >
+                  {tag.name}
+                </button>
+              ))}
+
+              {/* Create new tag inline */}
+              {showNewTag ? (
+                <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+                  <input
+                    autoFocus
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleCreateTag(); if (e.key === 'Escape') { setShowNewTag(false); setTagInput(''); } }}
+                    placeholder="Tag name…"
+                    style={{ padding: '3px 8px', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)', fontSize: '0.775rem', width: '110px' }}
+                  />
+                  <button onClick={handleCreateTag} disabled={tagLoading || !tagInput.trim()} style={{ padding: '3px 10px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'var(--navy)', color: 'white', fontSize: '0.775rem', fontWeight: 600, cursor: 'pointer' }}>
+                    Create
+                  </button>
+                  <button onClick={() => { setShowNewTag(false); setTagInput(''); }} style={{ padding: '3px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-default)', background: 'transparent', color: 'var(--text-muted)', fontSize: '0.775rem', cursor: 'pointer' }}>
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowNewTag(true)}
+                  style={{ padding: '3px 10px', borderRadius: '999px', border: '1px dashed var(--border-default)', background: 'transparent', color: 'var(--text-muted)', fontSize: '0.775rem', cursor: 'pointer' }}
+                >
+                  + New tag
+                </button>
+              )}
             </div>
           </div>
         </div>

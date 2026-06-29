@@ -45,6 +45,7 @@ function Watchlist() {
   const [loading, setLoading] = useState(true);
   const [stanceFilter, setStanceFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
+  const [tagFilter, setTagFilter] = useState('');
 
   useEffect(() => {
     if (!isSignedIn) { setLoading(false); return; }
@@ -86,9 +87,20 @@ function Watchlist() {
     );
   }
 
+  // Unique tags across all watchlist items for the filter dropdown
+  const allTagOptions = [];
+  const seenTagIds = new Set();
+  for (const item of items) {
+    for (const tag of (item.tags || [])) {
+      if (!seenTagIds.has(tag.id)) { seenTagIds.add(tag.id); allTagOptions.push(tag); }
+    }
+  }
+  allTagOptions.sort((a, b) => a.name.localeCompare(b.name));
+
   const filtered = items.filter((item) => {
     if (stanceFilter && item.stance !== stanceFilter) return false;
     if (priorityFilter && item.priority !== priorityFilter) return false;
+    if (tagFilter && !(item.tags || []).some((t) => String(t.id) === tagFilter)) return false;
     return true;
   });
 
@@ -122,6 +134,17 @@ function Watchlist() {
               <option value="low">Low</option>
             </select>
           </div>
+          {allTagOptions.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500 }}>Tag:</label>
+              <select style={selectStyle} value={tagFilter} onChange={(e) => setTagFilter(e.target.value)}>
+                <option value="">All</option>
+                {allTagOptions.map((t) => (
+                  <option key={t.id} value={String(t.id)}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       )}
 
@@ -170,6 +193,13 @@ function Watchlist() {
                       {bill?.category && <StatusBadge label={bill.category} type="info" />}
                       {Array.isArray(bill?.sectors) && bill.sectors.map((s) => (
                         <StatusBadge key={s} label={s} type="sector" />
+                      ))}
+
+                      {/* User tags */}
+                      {(item.tags || []).map((tag) => (
+                        <span key={tag.id} style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--navy)', background: 'var(--navy-light)', border: '1px solid var(--navy)', borderRadius: '999px', padding: '1px 7px' }}>
+                          {tag.name}
+                        </span>
                       ))}
 
                       {/* User annotations */}

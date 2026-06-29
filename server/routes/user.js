@@ -72,9 +72,24 @@ router.get('/bills', async (req, res) => {
 
     const billMap = Object.fromEntries(bills.map((b) => [b.billId, b]));
 
+    // Include tags for each bill
+    const billTags = billIds.length
+      ? await db.userBillTag.findMany({
+          where: { userId, billId: { in: billIds } },
+          include: { tag: true },
+          orderBy: { tag: { name: 'asc' } },
+        })
+      : [];
+    const tagsByBill = {};
+    for (const bt of billTags) {
+      if (!tagsByBill[bt.billId]) tagsByBill[bt.billId] = [];
+      tagsByBill[bt.billId].push(bt.tag);
+    }
+
     const result = userBills.map((ub) => ({
       ...ub,
       bill: billMap[ub.billId] || null,
+      tags: tagsByBill[ub.billId] || [],
     }));
 
     res.json(result);
