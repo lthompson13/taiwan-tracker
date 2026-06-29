@@ -141,13 +141,20 @@ router.post('/webhook', async (req, res) => {
         const clerkUserId = sub.metadata?.clerkUserId;
         if (!clerkUserId) break;
 
-        // Only update if this is the user's current subscription —
-        // prevents a stale/duplicate subscription from overwriting live status.
-        const clerkUserUpd = await clerkClient.users.getUser(clerkUserId);
-        const currentSubId = clerkUserUpd.publicMetadata?.stripeSubscriptionId;
-        if (currentSubId && currentSubId !== sub.id) {
-          console.log(`[stripe/webhook] subscription.updated ignored — event sub ${sub.id} != current sub ${currentSubId}`);
-          break;
+        // If this event is a downgrade, verify there's no other active/trialing
+        // subscription for this customer before applying it. This prevents a
+        // stale duplicate subscription's cancellation from revoking access.
+        const DOWNGRADE_STATUSES = ['canceled', 'incomplete', 'incomplete_expired', 'unpaid', 'past_due'];
+        if (DOWNGRADE_STATUSES.includes(sub.status)) {
+          const [activeSubs, trialSubs] = await Promise.all([
+            stripe.subscriptions.list({ customer: sub.customer, status: 'active', limit: 5 }),
+            stripe.subscriptions.list({ customer: sub.customer, status: 'trialing', limit: 5 }),
+          ]);
+          const betterSub = [...activeSubs.data, ...trialSubs.data].find((s) => s.id !== sub.id);
+          if (betterSub) {
+            console.log(`[stripe/webhook] subscription.updated: ${sub.id} → ${sub.status} but customer has active sub ${betterSub.id} — skipping downgrade`);
+            break;
+          }
         }
 
         await clerkClient.users.updateUserMetadata(clerkUserId, {
@@ -173,11 +180,14 @@ router.post('/webhook', async (req, res) => {
         const clerkUserId = sub.metadata?.clerkUserId;
         if (!clerkUserId) break;
 
-        // Only cancel if this is the user's current subscription.
-        const clerkUserDel = await clerkClient.users.getUser(clerkUserId);
-        const currentSubIdDel = clerkUserDel.publicMetadata?.stripeSubscriptionId;
-        if (currentSubIdDel && currentSubIdDel !== sub.id) {
-          console.log(`[stripe/webhook] subscription.deleted ignored — event sub ${sub.id} != current sub ${currentSubIdDel}`);
+        // Check if the customer has another active/trialing subscription before canceling.
+        const [activeSubs, trialSubs] = await Promise.all([
+          stripe.subscriptions.list({ customer: sub.customer, status: 'active', limit: 5 }),
+          stripe.subscriptions.list({ customer: sub.customer, status: 'trialing', limit: 5 }),
+        ]);
+        const betterSub = [...activeSubs.data, ...trialSubs.data].find((s) => s.id !== sub.id);
+        if (betterSub) {
+          console.log(`[stripe/webhook] subscription.deleted: ${sub.id} but customer has active sub ${betterSub.id} — skipping cancel`);
           break;
         }
 
