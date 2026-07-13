@@ -72,6 +72,33 @@ model UserBillTag {
   @@index([userId, billId])
 }
 
+// User-created named lists of bills (Pro feature).
+model BillList {
+  id          Int            @id @default(autoincrement())
+  userId      String
+  name        String
+  description String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  items       BillListItem[]
+
+  @@index([userId])
+}
+
+// Bills inside a named list.
+model BillListItem {
+  id      Int      @id @default(autoincrement())
+  listId  Int
+  billId  String
+  addedAt DateTime @default(now())
+
+  list    BillList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@unique([listId, billId])
+  @@index([listId])
+}
+
 // Locally synced bills from the Legislative Yuan API.
 // Enables full-text search and filtering that the upstream API cannot provide.
 model Bill {

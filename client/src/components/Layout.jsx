@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { to: '/hearings',  label: 'Hearings' },
   { to: '/news',      label: 'News' },
   { to: '/watchlist', label: 'My Watchlist' },
+  { to: '/lists',    label: 'My Lists' },
 ];
 
 function Layout() {

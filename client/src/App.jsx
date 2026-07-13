@@ -8,6 +8,8 @@ import BillDetail from './pages/BillDetail';
 import Committees from './pages/Committees';
 import Activity from './pages/Activity';
 import Watchlist from './pages/Watchlist';
+import Lists from './pages/Lists';
+import ListDetail from './pages/ListDetail';
 import Hearings from './pages/Hearings';
 import News from './pages/News';
 import Admin from './pages/Admin';
@@ -37,6 +39,8 @@ function App() {
           <Route path="committees" element={<Committees />} />
           <Route path="activity" element={<Activity />} />
           <Route path="watchlist" element={<Watchlist />} />
+          <Route path="lists" element={<Lists />} />
+          <Route path="lists/:listId" element={<ListDetail />} />
           <Route path="hearings" element={<Hearings />} />
           <Route path="news" element={<News />} />
           <Route path="admin" element={<Admin />} />

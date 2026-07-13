@@ -161,6 +161,13 @@ function BillDetail() {
   const [showNewTag, setShowNewTag] = useState(false);
   const [tagLoading, setTagLoading] = useState(false);
 
+  // Lists (Pro)
+  const [allLists, setAllLists]           = useState([]);
+  const [listLoading, setListLoading]     = useState(false);
+  const [showNewList, setShowNewList]     = useState(false);
+  const [newListName, setNewListName]     = useState('');
+  const [creatingList, setCreatingList]   = useState(false);
+
   useEffect(() => {
     const fetchBill = async () => {
       try {
@@ -201,6 +208,16 @@ function BillDetail() {
       setAllTags(Array.isArray(tags) ? tags : []);
       setBillTags(Array.isArray(applied) ? applied : []);
     }).catch(() => {});
+  }, [isSignedIn, id]);
+
+  useEffect(() => {
+    if (!isSignedIn || !id) return;
+    setListLoading(true);
+    fetch(`/api/user/lists?billId=${encodeURIComponent(id)}`, { credentials: 'include' })
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setAllLists(Array.isArray(data) ? data : []))
+      .catch(() => {})
+      .finally(() => setListLoading(false));
   }, [isSignedIn, id]);
 
   const handleGenerateDraft = async () => {
@@ -343,6 +360,42 @@ function BillDetail() {
       console.error('[tags] create error:', err.message);
     } finally {
       setTagLoading(false);
+    }
+  };
+
+  const handleToggleList = async (listItem) => {
+    const inList = listItem.hasBill;
+    try {
+      const method = inList ? 'DELETE' : 'POST';
+      await fetch(`/api/user/lists/${listItem.id}/bills/${encodeURIComponent(id)}`, { method, credentials: 'include' });
+      setAllLists((prev) => prev.map((l) => l.id === listItem.id ? { ...l, hasBill: !inList } : l));
+    } catch (err) {
+      console.error('[lists] toggle error:', err.message);
+    }
+  };
+
+  const handleCreateList = async () => {
+    const name = newListName.trim();
+    if (!name) return;
+    setCreatingList(true);
+    try {
+      const res = await fetch('/api/user/lists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ name }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      // Add bill to new list immediately
+      await fetch(`/api/user/lists/${data.id}/bills/${encodeURIComponent(id)}`, { method: 'POST', credentials: 'include' });
+      setAllLists((prev) => [...prev, { ...data, hasBill: true }].sort((a, b) => a.name.localeCompare(b.name)));
+      setNewListName('');
+      setShowNewList(false);
+    } catch (err) {
+      console.error('[lists] create error:', err.message);
+    } finally {
+      setCreatingList(false);
     }
   };
 
@@ -555,6 +608,67 @@ function BillDetail() {
                 </button>
               )}
             </div>
+          </div>
+
+          {/* Lists */}
+          <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)' }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500, marginBottom: '8px' }}>Lists</div>
+            {listLoading ? (
+              <span style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>Loading…</span>
+            ) : (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                {/* Lists containing this bill — click to remove */}
+                {allLists.filter((l) => l.hasBill).map((l) => (
+                  <button
+                    key={l.id}
+                    onClick={() => handleToggleList(l)}
+                    title="Click to remove from list"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 10px', borderRadius: '999px', border: '1px solid var(--navy)', background: 'var(--navy-light)', color: 'var(--navy)', fontSize: '0.775rem', fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    {l.name} <span style={{ fontSize: '0.9rem', lineHeight: 1 }}>×</span>
+                  </button>
+                ))}
+
+                {/* Lists not containing this bill — click to add */}
+                {allLists.filter((l) => !l.hasBill).map((l) => (
+                  <button
+                    key={l.id}
+                    onClick={() => handleToggleList(l)}
+                    title="Click to add to list"
+                    style={{ padding: '3px 10px', borderRadius: '999px', border: '1px solid var(--border-default)', background: 'transparent', color: 'var(--text-muted)', fontSize: '0.775rem', cursor: 'pointer' }}
+                  >
+                    {l.name}
+                  </button>
+                ))}
+
+                {/* Create new list inline */}
+                {showNewList ? (
+                  <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+                    <input
+                      autoFocus
+                      value={newListName}
+                      onChange={(e) => setNewListName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleCreateList(); if (e.key === 'Escape') { setShowNewList(false); setNewListName(''); } }}
+                      placeholder="List name…"
+                      style={{ padding: '3px 8px', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)', fontSize: '0.775rem', width: '120px' }}
+                    />
+                    <button onClick={handleCreateList} disabled={creatingList || !newListName.trim()} style={{ padding: '3px 10px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'var(--navy)', color: 'white', fontSize: '0.775rem', fontWeight: 600, cursor: 'pointer' }}>
+                      {creatingList ? '…' : 'Create'}
+                    </button>
+                    <button onClick={() => { setShowNewList(false); setNewListName(''); }} style={{ padding: '3px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-default)', background: 'transparent', color: 'var(--text-muted)', fontSize: '0.775rem', cursor: 'pointer' }}>
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowNewList(true)}
+                    style={{ padding: '3px 10px', borderRadius: '999px', border: '1px dashed var(--border-default)', background: 'transparent', color: 'var(--text-muted)', fontSize: '0.775rem', cursor: 'pointer' }}
+                  >
+                    + New list
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
