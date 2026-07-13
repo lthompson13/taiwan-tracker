@@ -163,7 +163,9 @@ function mapMeet(raw) {
  */
 router.get('/:id/meets', async (req, res) => {
   const { id } = req.params;
-  const data = await fetchFromLY('meets', { '議案編號': id, limit: 20 });
+  // '議事網資料.關係文書.議案.議案編號' is the nested filter path that links a
+  // specific bill ID to the meetings in which it appeared.
+  const data = await fetchFromLY('meets', { '議事網資料.關係文書.議案.議案編號': id, limit: 20 });
   if (data.error) {
     return res.status(data.status || 500).json(data);
   }
