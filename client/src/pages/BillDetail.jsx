@@ -123,6 +123,36 @@ const linkStyle = {
 
 const TABS = ['Summary', 'Actions', 'Documents', 'Committees'];
 
+const TODAY_STR = new Date().toISOString().slice(0, 10);
+
+function isUpcoming(dates) {
+  return Array.isArray(dates) && dates.some((d) => d >= TODAY_STR);
+}
+
+function fmtMeetDates(dates) {
+  if (!dates || dates.length === 0) return '—';
+  const fmt = (d) => {
+    const [, m, day] = d.split('-');
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${months[parseInt(m, 10) - 1]} ${parseInt(day, 10)}`;
+  };
+  if (dates.length === 1) return fmt(dates[0]);
+  const first = dates[0], last = dates[dates.length - 1];
+  const [fy, fm] = first.split('-');
+  const [ly, lm, ld] = last.split('-');
+  if (fy === ly && fm === lm) {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${months[parseInt(fm, 10) - 1]} ${parseInt(first.split('-')[2], 10)}–${parseInt(ld, 10)}`;
+  }
+  return `${fmt(first)} – ${fmt(last)}`;
+}
+
+function fmtMeetTime(startTime, endTime) {
+  if (!startTime) return null;
+  const t = (iso) => iso.slice(11, 16);
+  return endTime ? `${t(startTime)}–${t(endTime)}` : t(startTime);
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 function BillDetail() {
@@ -167,6 +197,10 @@ function BillDetail() {
   const [showNewList, setShowNewList]     = useState(false);
   const [newListName, setNewListName]     = useState('');
   const [creatingList, setCreatingList]   = useState(false);
+
+  // Hearings (bill-specific meets)
+  const [billMeets, setBillMeets]         = useState(null); // null = not yet loaded
+  const [meetsLoading, setMeetsLoading]   = useState(false);
 
   useEffect(() => {
     const fetchBill = async () => {
@@ -362,6 +396,16 @@ function BillDetail() {
       setTagLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (activeTab !== 'Committees' || !id || billMeets !== null) return;
+    setMeetsLoading(true);
+    fetch(`/api/bills/${encodeURIComponent(id)}/meets`)
+      .then((r) => r.ok ? r.json() : { meets: [] })
+      .then((data) => setBillMeets(Array.isArray(data.meets) ? data.meets : []))
+      .catch(() => setBillMeets([]))
+      .finally(() => setMeetsLoading(false));
+  }, [activeTab, id, billMeets]);
 
   const handleToggleList = async (listItem) => {
     const inList = listItem.hasBill;
@@ -1009,24 +1053,13 @@ function BillDetail() {
         <div>
           {bill.category ? (
             <Panel title="Committee assignment">
-              <div style={{ marginBottom: '16px' }}>
+              <div style={{ marginBottom: '4px' }}>
                 <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
                   Assigned Committee
                 </div>
-                <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '12px' }}>
+                <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>
                   {bill.category}
                 </div>
-                {bill.meetingDescription && (
-                  <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '16px', padding: '10px 14px', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid var(--border-default)' }}>
-                    {bill.meetingDescription}
-                  </div>
-                )}
-                <button
-                  onClick={() => navigate('/hearings')}
-                  style={{ padding: '8px 16px', background: 'transparent', border: '1px solid var(--teal)', borderRadius: 'var(--radius-sm)', color: 'var(--teal)', fontSize: '0.825rem', fontWeight: 600, cursor: 'pointer' }}
-                >
-                  View committee hearings →
-                </button>
               </div>
             </Panel>
           ) : (
@@ -1036,6 +1069,91 @@ function BillDetail() {
               </div>
             </Panel>
           )}
+
+          {/* Hearings */}
+          <Panel title="Hearings">
+            {meetsLoading ? (
+              <div style={{ padding: '20px 0', color: 'var(--text-muted)', fontSize: '0.875rem', textAlign: 'center' }}>
+                Loading hearings…
+              </div>
+            ) : !billMeets || billMeets.length === 0 ? (
+              <div style={{ padding: '20px 0', color: 'var(--text-muted)', textAlign: 'center', fontSize: '0.875rem' }}>
+                No hearings on record for this bill.
+              </div>
+            ) : (
+              billMeets.map((meet, idx) => {
+                const upcoming = isUpcoming(meet.dates);
+                const time = fmtMeetTime(meet.startTime, meet.endTime);
+                return (
+                  <div
+                    key={meet.meetingCode || idx}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '90px 1fr',
+                      gap: '14px',
+                      padding: '14px 0',
+                      borderBottom: idx < billMeets.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                      opacity: upcoming ? 1 : 0.7,
+                    }}
+                  >
+                    {/* Date column */}
+                    <div style={{ paddingTop: '2px' }}>
+                      <div style={{ fontSize: '0.875rem', fontWeight: 700, color: upcoming ? 'var(--navy)' : 'var(--text-muted)', lineHeight: 1.3 }}>
+                        {fmtMeetDates(meet.dates)}
+                      </div>
+                      {time && (
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '3px' }}>{time}</div>
+                      )}
+                      {upcoming && (
+                        <div style={{ marginTop: '6px', display: 'inline-block', fontSize: '0.63rem', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--teal)', background: 'var(--teal-light)', border: '1px solid var(--teal)', borderRadius: '999px', padding: '1px 6px' }}>
+                          UPCOMING
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Content column */}
+                    <div>
+                      {(meet.committeeNames || []).length > 0 && (
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '5px' }}>
+                          {meet.committeeNames.map((name) => (
+                            <StatusBadge key={name} label={name} type="info" />
+                          ))}
+                        </div>
+                      )}
+                      <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '5px', lineHeight: 1.4 }}>
+                        {meet.title || '—'}
+                      </div>
+                      {meet.location && (
+                        <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)', marginBottom: '5px' }}>
+                          {meet.location}
+                          {meet.convener ? ` · Convened by ${meet.convener}` : ''}
+                        </div>
+                      )}
+                      {meet.agenda && (
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5, borderLeft: '3px solid var(--border-default)', paddingLeft: '9px', marginBottom: '6px' }}>
+                          {meet.agenda.length > 200
+                            ? meet.agenda.slice(0, 200).replace(/\n/g, ' ') + '…'
+                            : meet.agenda.replace(/\n/g, ' ')}
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        {meet.url && (
+                          <a href={meet.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.775rem', color: 'var(--teal)', textDecoration: 'none', fontWeight: 500 }}>
+                            View on LY →
+                          </a>
+                        )}
+                        {meet.videoUrl && (
+                          <a href={meet.videoUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.775rem', color: 'var(--teal)', textDecoration: 'none', fontWeight: 500 }}>
+                            Video
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </Panel>
         </div>
       )}
     </div>

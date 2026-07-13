@@ -11,6 +11,7 @@ const {
   BILL_STATUS_MAP,
   mapValue,
 } = require('../lib/filterMaps');
+const { translateMeet } = require('../lib/translateFields');
 
 /**
  * Map a raw bill object from the LY API to English keys.
@@ -106,6 +107,81 @@ router.get('/', async (req, res) => {
     translated: getTranslationStatus().healthy,
     bills: translated,
   });
+});
+
+/**
+ * Map a raw meet object from the LY API to English-keyed fields.
+ * Duplicated from routes/meets.js to keep the bills route self-contained.
+ */
+function mapMeet(raw) {
+  const details  = Array.isArray(raw['會議資料'])  ? raw['會議資料']  : [];
+  const sittings = Array.isArray(raw['議事網資料']) ? raw['議事網資料'] : [];
+  const primary  = details[0] || {};
+
+  const seenUrls = new Set();
+  const attachments = sittings
+    .flatMap((s) => s['附件'] || [])
+    .filter((a) => {
+      if (!a['連結'] || !a['格式']) return false;
+      if (seenUrls.has(a['連結'])) return false;
+      seenUrls.add(a['連結']);
+      return true;
+    })
+    .map((a) => ({ url: a['連結'], title: a['標題'], format: a['格式'] }));
+
+  const videoUrl =
+    sittings
+      .flatMap((s) => s['連結'] || [])
+      .find((l) => l['類型'] === 'video')?.['連結'] || null;
+
+  return {
+    meetingCode:    raw['會議代碼'],
+    term:           raw['屆'],
+    session:        raw['會期'],
+    meetingNumber:  raw['會次'],
+    meetingType:    raw['會議種類'],
+    committeeIds:   raw['委員會代號']      || [],
+    committeeNames: raw['委員會代號:str']  || [],
+    dates:          raw['日期']            || [],
+    title:          raw['會議標題']        || null,
+    location:       primary['會議地點']    || null,
+    agenda:         primary['會議事由']    || null,
+    convener:       primary['委員會召集委員'] || null,
+    startTime:      primary['開始時間']    || null,
+    endTime:        primary['結束時間']    || null,
+    url:            primary['ppg_url']     || null,
+    isMultiDay:     (raw['日期'] || []).length > 1,
+    attachments,
+    videoUrl,
+  };
+}
+
+/**
+ * GET /:id/meets
+ * Fetch committee meetings associated with a specific bill.
+ * Queries the LY API with the bill ID; returns meetings sorted soonest first.
+ */
+router.get('/:id/meets', async (req, res) => {
+  const { id } = req.params;
+  const data = await fetchFromLY('meets', { '議案編號': id, limit: 20 });
+  if (data.error) {
+    return res.status(data.status || 500).json(data);
+  }
+  const meets = Array.isArray(data.meets) ? data.meets.map(mapMeet) : [];
+  // Sort: upcoming first (by earliest date in the meeting), then most-recent past
+  const today = new Date().toISOString().slice(0, 10);
+  meets.sort((a, b) => {
+    const aDate = (a.dates || [])[0] || '';
+    const bDate = (b.dates || [])[0] || '';
+    const aUp = aDate >= today;
+    const bUp = bDate >= today;
+    if (aUp && !bUp) return -1;
+    if (!aUp && bUp) return 1;
+    // Both upcoming: soonest first; both past: most-recent first
+    return aUp ? aDate.localeCompare(bDate) : bDate.localeCompare(aDate);
+  });
+  const translated = await Promise.all(meets.map(translateMeet));
+  res.json({ meets: translated, total: data.total || meets.length });
 });
 
 /**
