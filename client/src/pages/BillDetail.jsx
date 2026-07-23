@@ -169,7 +169,7 @@ function BillDetail() {
   const [activeTab, setActiveTab] = useState('Summary');
 
   // User annotations
-  const [annotation, setAnnotation] = useState({ watching: false, stance: null, priority: null, note: '' });
+  const [annotation, setAnnotation] = useState({ watching: false, stance: null, priority: null, note: '', notifyEnabled: false });
   const [noteInput, setNoteInput]   = useState('');
   const [savingNote, setSavingNote] = useState(false);
 
@@ -478,6 +478,12 @@ function BillDetail() {
     setAnnotation((a) => ({ ...a, watching: newWatching }));
     updateAnnotation({ watching: newWatching });
   };
+
+  const handleNotify = () => {
+    const newNotify = !annotation.notifyEnabled;
+    setAnnotation((a) => ({ ...a, notifyEnabled: newNotify }));
+    updateAnnotation({ notifyEnabled: newNotify });
+  };
   const handleSaveNote = async () => {
     setSavingNote(true);
     await updateAnnotation({ note: noteInput });
@@ -556,6 +562,18 @@ function BillDetail() {
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500 }}>Watch:</span>
               <button onClick={handleWatching} title={annotation.watching ? 'Unwatch' : 'Watch this bill'} style={{ fontSize: '1.1rem', background: annotation.watching ? 'var(--navy-light)' : 'transparent', border: `1px solid ${annotation.watching ? 'var(--navy)' : 'var(--border-default)'}`, borderRadius: 'var(--radius-sm)', padding: '4px 10px', cursor: 'pointer', color: annotation.watching ? 'var(--navy)' : 'var(--text-muted)' }}>
                 👁
+              </button>
+            </div>
+            {/* Notify */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500 }}>Notify:</span>
+              <button
+                onClick={handleNotify}
+                disabled={!annotation.watching}
+                title={!annotation.watching ? 'Watch the bill first to enable notifications' : annotation.notifyEnabled ? 'Turn off notifications' : 'Get email alerts for hearings and status changes'}
+                style={{ fontSize: '1.1rem', background: annotation.notifyEnabled ? 'var(--navy-light)' : 'transparent', border: `1px solid ${annotation.notifyEnabled ? 'var(--navy)' : 'var(--border-default)'}`, borderRadius: 'var(--radius-sm)', padding: '4px 10px', cursor: annotation.watching ? 'pointer' : 'not-allowed', color: annotation.notifyEnabled ? 'var(--navy)' : 'var(--text-muted)', opacity: annotation.watching ? 1 : 0.4 }}
+              >
+                🔔
               </button>
             </div>
             {/* Stance */}

@@ -130,6 +130,7 @@ router.put('/bills/:billId', async (req, res) => {
     stance,
     priority,
     note,
+    notifyEnabled,
   } = req.body;
 
   // Validate optional enum fields
@@ -146,6 +147,7 @@ router.put('/bills/:billId', async (req, res) => {
     if (stance !== undefined) data.stance = stance || null;
     if (priority !== undefined) data.priority = priority || null;
     if (note !== undefined) data.note = note || null;
+    if (notifyEnabled !== undefined) data.notifyEnabled = Boolean(notifyEnabled);
 
     const userBill = await db.userBill.upsert({
       where: { userId_billId: { userId, billId } },

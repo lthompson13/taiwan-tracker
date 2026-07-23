@@ -18,6 +18,7 @@
 
 const cron = require('node-cron');
 const { syncBills } = require('./billSync');
+const { checkHearingNotifications, checkStatusNotifications } = require('./notifications');
 
 let lastRunAt = null;
 let lastRunResult = null;
@@ -72,6 +73,28 @@ function startScheduler() {
   }, { timezone: 'UTC' });
 
   console.log(`[scheduler] Daily sync scheduled — "${cronExpression}" UTC (2 AM Taiwan time), term ${term}`);
+
+  // Status-change notifications — 20:00 UTC (4 AM Taiwan), after sync finishes
+  cron.schedule('0 20 * * *', async () => {
+    console.log('[scheduler] Status notification check starting');
+    try {
+      const result = await checkStatusNotifications();
+      console.log('[scheduler] Status notifications done —', JSON.stringify(result));
+    } catch (err) {
+      console.error('[scheduler] Status notifications failed:', err.message);
+    }
+  }, { timezone: 'UTC' });
+
+  // Hearing notifications — 01:00 UTC (9 AM Taiwan)
+  cron.schedule('0 1 * * *', async () => {
+    console.log('[scheduler] Hearing notification check starting');
+    try {
+      const result = await checkHearingNotifications();
+      console.log('[scheduler] Hearing notifications done —', JSON.stringify(result));
+    } catch (err) {
+      console.error('[scheduler] Hearing notifications failed:', err.message);
+    }
+  }, { timezone: 'UTC' });
 }
 
 module.exports = { startScheduler, getStatus };

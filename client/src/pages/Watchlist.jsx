@@ -46,6 +46,7 @@ function Watchlist() {
   const [stanceFilter, setStanceFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [tagFilter, setTagFilter] = useState('');
+  const [togglingNotify, setTogglingNotify] = useState(null);
 
   useEffect(() => {
     if (!isSignedIn) { setLoading(false); return; }
@@ -56,6 +57,28 @@ function Watchlist() {
       .catch(() => setItems([]))
       .finally(() => setLoading(false));
   }, [isSignedIn]);
+
+  const handleToggleNotify = async (e, item) => {
+    e.stopPropagation();
+    if (togglingNotify === item.billId) return;
+    setTogglingNotify(item.billId);
+    const newVal = !item.notifyEnabled;
+    try {
+      const res = await fetch(`/api/user/bills/${encodeURIComponent(item.billId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ notifyEnabled: newVal }),
+      });
+      if (res.ok) {
+        setItems((prev) => prev.map((i) => i.billId === item.billId ? { ...i, notifyEnabled: newVal } : i));
+      }
+    } catch (err) {
+      console.error('[watchlist] toggle notify error:', err.message);
+    } finally {
+      setTogglingNotify(null);
+    }
+  };
 
   if (!isSignedIn) {
     return (
@@ -228,8 +251,16 @@ function Watchlist() {
                     )}
                   </div>
 
-                  {/* Term / date */}
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  {/* Notify toggle + Term / date */}
+                  <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
+                    <button
+                      onClick={(e) => handleToggleNotify(e, item)}
+                      disabled={togglingNotify === item.billId}
+                      title={item.notifyEnabled ? 'Notifications on — click to turn off' : 'Click to get email alerts for this bill'}
+                      style={{ fontSize: '0.9rem', background: item.notifyEnabled ? 'var(--navy-light)' : 'transparent', border: `1px solid ${item.notifyEnabled ? 'var(--navy)' : 'var(--border-default)'}`, borderRadius: 'var(--radius-sm)', padding: '3px 8px', cursor: 'pointer', color: item.notifyEnabled ? 'var(--navy)' : 'var(--text-muted)', lineHeight: 1 }}
+                    >
+                      🔔
+                    </button>
                     {bill?.term && (
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '2px' }}>
                         Term {bill.term}{bill.session ? ` · Session ${bill.session}` : ''}

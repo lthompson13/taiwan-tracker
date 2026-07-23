@@ -30,18 +30,36 @@ model Subscriber {
 // Per-user bill annotations: watchlist, stance, priority, and notes.
 // One record per (userId, billId) pair. userId is the Clerk userId string.
 model UserBill {
-  id        Int      @id @default(autoincrement())
-  userId    String
-  billId    String
-  watching  Boolean  @default(false)
-  stance    String?  // 'support' | 'oppose' | 'monitor'
-  priority  String?  // 'high' | 'medium' | 'low'
-  note      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               Int      @id @default(autoincrement())
+  userId           String
+  billId           String
+  watching         Boolean  @default(false)
+  stance           String?  // 'support' | 'oppose' | 'monitor'
+  priority         String?  // 'high' | 'medium' | 'low'
+  note             String?
+  notifyEnabled    Boolean  @default(false)
+  lastKnownStatus  String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@unique([userId, billId])
   @@index([userId])
+  @@index([notifyEnabled, watching])
+}
+
+// Deduplication log — prevents sending the same notification twice.
+// For hearings: ref = meetingCode. For status changes: ref = new status value.
+model NotificationLog {
+  id      Int      @id @default(autoincrement())
+  userId  String
+  billId  String
+  type    String   // 'hearing' | 'status_change'
+  ref     String
+  sentAt  DateTime @default(now())
+
+  @@unique([userId, billId, type, ref])
+  @@index([userId])
+  @@index([sentAt])
 }
 
 // User-defined tags for organizing bills (Pro feature).
