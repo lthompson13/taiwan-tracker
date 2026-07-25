@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '@clerk/clerk-react';
+import { useSubscription } from '../hooks/useSubscription';
 import Panel from '../components/Panel';
 import StatusBadge from '../components/StatusBadge';
 import SearchBar from '../components/SearchBar';
@@ -48,6 +50,22 @@ const SECTOR_OPTIONS = [
   { value: 'Transportation',       label: 'Transportation' },
 ];
 
+const SORT_OPTIONS = [
+  { value: 'recent',  label: 'Most recent action' },
+  { value: 'oldest',  label: 'Oldest action first' },
+];
+
+const ANNOTATION_OPTIONS = [
+  { value: '',        label: 'All bills' },
+  { value: 'support', label: '👍 Support' },
+  { value: 'oppose',  label: '👎 Oppose' },
+  { value: 'monitor', label: '👁 Monitor' },
+  { value: 'watching', label: 'Watching' },
+  { value: 'high',    label: 'High priority' },
+  { value: 'medium',  label: 'Medium priority' },
+  { value: 'low',     label: 'Low priority' },
+];
+
 const STATUS_OPTIONS = [
   { value: '', label: 'All statuses' },
   { value: 'Scheduled for Plenary', label: 'Scheduled for Plenary' },
@@ -78,6 +96,8 @@ const LIMIT = 20;
 function Bills() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { isSignedIn } = useAuth();
+  const { isSubscribed } = useSubscription();
 
   // Seed initial filters from URL query params (e.g., ?sector=Cross-Strait from dashboard)
   const initParams = new URLSearchParams(location.search);
@@ -86,7 +106,36 @@ function Bills() {
   const [sessionFilter, setSessionFilter] = useState('');
   const [sectorFilter, setSectorFilter] = useState(initParams.get('sector') || '');
   const [statusFilter, setStatusFilter] = useState('');
+  const [sortOrder, setSortOrder] = useState('recent');
+  const [annotationFilter, setAnnotationFilter] = useState('');
   const [page, setPage] = useState(1);
+
+  // Annotated bill IDs loaded when annotation filter is active
+  const [annotatedIds, setAnnotatedIds] = useState(null);
+  const [annotatedLoading, setAnnotatedLoading] = useState(false);
+
+  // When annotation filter is set, fetch the user's matching bill IDs from the watchlist endpoint
+  useEffect(() => {
+    if (!annotationFilter || !isSignedIn || !isSubscribed) {
+      setAnnotatedIds(null);
+      return;
+    }
+    setAnnotatedLoading(true);
+    fetch('/api/user/bills', { credentials: 'include' })
+      .then((r) => r.json())
+      .then((data) => {
+        const items = Array.isArray(data) ? data : [];
+        const matched = items.filter((item) => {
+          if (annotationFilter === 'watching') return item.watching;
+          if (['support', 'oppose', 'monitor'].includes(annotationFilter)) return item.stance === annotationFilter;
+          if (['high', 'medium', 'low'].includes(annotationFilter)) return item.priority === annotationFilter;
+          return false;
+        });
+        setAnnotatedIds(new Set(matched.map((i) => i.billId)));
+      })
+      .catch(() => setAnnotatedIds(new Set()))
+      .finally(() => setAnnotatedLoading(false));
+  }, [annotationFilter, isSignedIn, isSubscribed]);
 
   const [bills, setBills] = useState([]);
   const [total, setTotal] = useState(0);
@@ -102,12 +151,21 @@ function Bills() {
         setLoading(true);
         setError(null);
 
+        // If annotation filter active but IDs aren't loaded yet, wait
+        if (annotationFilter && annotatedLoading) return;
+
         const params = new URLSearchParams({ page: String(page), limit: String(LIMIT) });
         if (search.trim()) params.set('q', search.trim());
         if (termFilter) params.set('term', termFilter);
         if (sessionFilter) params.set('session', sessionFilter);
         if (sectorFilter) params.set('sector', sectorFilter);
         if (statusFilter) params.set('status', statusFilter);
+        if (sortOrder === 'oldest') params.set('sort', 'oldest');
+        if (annotationFilter && annotatedIds) {
+          const idList = [...annotatedIds].join(',');
+          if (idList) params.set('ids', idList);
+          else params.set('ids', '__none__'); // no matching bills → force zero results
+        }
 
         const res = await fetch(`/api/archive?${params}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -126,13 +184,15 @@ function Bills() {
     };
 
     fetchBills();
-  }, [page, search, termFilter, sessionFilter, sectorFilter, statusFilter]);
+  }, [page, search, termFilter, sessionFilter, sectorFilter, statusFilter, sortOrder, annotationFilter, annotatedIds, annotatedLoading]);
 
   const handleFilterChange = (key, value) => {
-    if (key === 'term') { setTermFilter(value); setSessionFilter(''); }
-    if (key === 'session') setSessionFilter(value);
-    if (key === 'sector') setSectorFilter(value);
-    if (key === 'status') setStatusFilter(value);
+    if (key === 'term')       { setTermFilter(value); setSessionFilter(''); }
+    if (key === 'session')    setSessionFilter(value);
+    if (key === 'sector')     setSectorFilter(value);
+    if (key === 'status')     setStatusFilter(value);
+    if (key === 'sort')       setSortOrder(value);
+    if (key === 'annotation') { setAnnotationFilter(value); setAnnotatedIds(null); }
     setPage(1);
   };
 
@@ -158,10 +218,14 @@ function Bills() {
         placeholder="Search bill name, number, or proposer…"
         onSearch={() => {}}
         filters={[
-          { key: 'term',    label: 'Term',    value: termFilter,    options: TERM_OPTIONS    },
-          { key: 'session', label: 'Session', value: sessionFilter, options: SESSION_OPTIONS },
-          { key: 'sector',  label: 'Sector',  value: sectorFilter,  options: SECTOR_OPTIONS  },
-          { key: 'status',  label: 'Status',  value: statusFilter,  options: STATUS_OPTIONS  },
+          { key: 'term',    label: 'Term',    value: termFilter,      options: TERM_OPTIONS       },
+          { key: 'session', label: 'Session', value: sessionFilter,   options: SESSION_OPTIONS    },
+          { key: 'sector',  label: 'Sector',  value: sectorFilter,    options: SECTOR_OPTIONS     },
+          { key: 'status',  label: 'Status',  value: statusFilter,    options: STATUS_OPTIONS     },
+          { key: 'sort',    label: 'Sort',    value: sortOrder,       options: SORT_OPTIONS       },
+          ...(isSignedIn && isSubscribed
+            ? [{ key: 'annotation', label: 'My Bills', value: annotationFilter, options: ANNOTATION_OPTIONS }]
+            : []),
         ]}
         onFilterChange={handleFilterChange}
       />

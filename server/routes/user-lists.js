@@ -60,7 +60,7 @@ router.get('/', async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// POST / — create a list
+// POST / — create a list (manual or smart)
 // ---------------------------------------------------------------------------
 router.post('/', async (req, res) => {
   const userId = getUser(req);
@@ -69,9 +69,10 @@ router.post('/', async (req, res) => {
   const name = req.body?.name?.trim();
   if (!name) return res.status(400).json({ error: 'name is required' });
   const description = req.body?.description?.trim() || null;
+  const filterCriteria = req.body?.filterCriteria ?? null;
   try {
     const list = await db.billList.create({
-      data: { userId, name, description },
+      data: { userId, name, description, filterCriteria },
       include: { _count: { select: { items: true } } },
     });
     res.status(201).json(list);
@@ -82,6 +83,7 @@ router.post('/', async (req, res) => {
 
 // ---------------------------------------------------------------------------
 // GET /:listId — list detail with enriched bills
+// Smart lists: auto-populate by running the stored filterCriteria query.
 // ---------------------------------------------------------------------------
 router.get('/:listId', async (req, res) => {
   const userId = getUser(req);
@@ -96,20 +98,55 @@ router.get('/:listId', async (req, res) => {
     });
     if (!list || list.userId !== userId) return res.status(404).json({ error: 'List not found' });
 
+    const billSelect = {
+      billId: true, billName: true, status: true, category: true,
+      sectors: true, term: true, session: true, latestProgressDate: true,
+    };
+
+    // Smart list: query bills by stored filter criteria instead of BillListItem rows
+    if (list.filterCriteria) {
+      const fc = list.filterCriteria;
+      const where = {};
+      if (fc.term)    where.term    = parseInt(fc.term, 10);
+      if (fc.session) where.session = parseInt(fc.session, 10);
+      if (fc.sector)  where.sectors = { has: fc.sector };
+      if (fc.status)  where.status  = { equals: fc.status, mode: 'insensitive' };
+
+      // Annotation-based filters require a UserBill join
+      if (fc.stance || fc.priority || fc.watching) {
+        const ubWhere = { userId };
+        if (fc.stance)   ubWhere.stance   = fc.stance;
+        if (fc.priority) ubWhere.priority = fc.priority;
+        if (fc.watching) ubWhere.watching = true;
+        const ubs = await db.userBill.findMany({ where: ubWhere, select: { billId: true } });
+        const ubIds = ubs.map((u) => u.billId);
+        where.billId = where.billId ? { in: ubIds.filter((id) => where.billId.in.includes(id)) } : { in: ubIds };
+      }
+
+      const bills = await db.bill.findMany({
+        where,
+        orderBy: [{ latestProgressDate: 'desc' }],
+        take: 100,
+        select: billSelect,
+      });
+
+      return res.json({
+        ...list,
+        isSmart: true,
+        items: bills.map((b) => ({ billId: b.billId, addedAt: null, bill: b })),
+      });
+    }
+
+    // Manual list: enrich BillListItem rows with bill data
     const billIds = list.items.map((i) => i.billId);
     const bills = billIds.length
-      ? await db.bill.findMany({
-          where: { billId: { in: billIds } },
-          select: {
-            billId: true, billName: true, status: true, category: true,
-            sectors: true, term: true, session: true, latestProgressDate: true,
-          },
-        })
+      ? await db.bill.findMany({ where: { billId: { in: billIds } }, select: billSelect })
       : [];
     const billMap = Object.fromEntries(bills.map((b) => [b.billId, b]));
 
     res.json({
       ...list,
+      isSmart: false,
       items: list.items.map((item) => ({ ...item, bill: billMap[item.billId] || null })),
     });
   } catch (err) {
@@ -132,6 +169,7 @@ router.patch('/:listId', async (req, res) => {
     const data = {};
     if (req.body?.name?.trim()) data.name = req.body.name.trim();
     if (req.body?.description !== undefined) data.description = req.body.description?.trim() || null;
+    if (typeof req.body?.notifyEnabled === 'boolean') data.notifyEnabled = req.body.notifyEnabled;
     const updated = await db.billList.update({ where: { id: listId }, data });
     res.json(updated);
   } catch (err) {

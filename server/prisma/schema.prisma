@@ -91,15 +91,19 @@ model UserBillTag {
 }
 
 // User-created named lists of bills (Pro feature).
+// filterCriteria non-null → smart list (auto-populated by stored filter, not BillListItem rows).
+// notifyEnabled  → send hearing/status-change notifications for every bill in this list.
 model BillList {
-  id          Int            @id @default(autoincrement())
-  userId      String
-  name        String
-  description String?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id             Int            @id @default(autoincrement())
+  userId         String
+  name           String
+  description    String?
+  filterCriteria Json?
+  notifyEnabled  Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
-  items       BillListItem[]
+  items          BillListItem[]
 
   @@index([userId])
 }

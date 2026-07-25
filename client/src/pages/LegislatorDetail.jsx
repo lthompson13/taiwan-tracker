@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Panel from '../components/Panel';
 import StatusBadge from '../components/StatusBadge';
 import Loader from '../components/Loader';
+import Pagination from '../components/Pagination';
 
 function getPartyBadgeType(party) {
   if (!party) return 'default';
@@ -54,12 +55,26 @@ const backButtonStyle = {
   marginBottom: '20px',
 };
 
+function getStatusBadgeType2(status) {
+  if (!status) return 'default';
+  if (status === 'Third Reading (Passed)') return 'success';
+  if (status === 'Scheduled for Plenary' || status === 'Scheduled for Plenary (Discussion)') return 'warning';
+  if (status === 'Review Complete' || status === 'Review Complete (Overdue)') return 'info';
+  return 'default';
+}
+
 function LegislatorDetail() {
   const { name } = useParams();
   const navigate = useNavigate();
   const [legislator, setLegislator] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const [bills, setBills] = useState([]);
+  const [billsLoading, setBillsLoading] = useState(false);
+  const [billsTotal, setBillsTotal] = useState(0);
+  const [billsPage, setBillsPage] = useState(1);
+  const [billsTotalPages, setBillsTotalPages] = useState(1);
 
   useEffect(() => {
     const fetchLegislator = async () => {
@@ -79,6 +94,28 @@ function LegislatorDetail() {
 
     fetchLegislator();
   }, [name]);
+
+  useEffect(() => {
+    if (!name) return;
+    const fetchBills = async () => {
+      setBillsLoading(true);
+      try {
+        const res = await fetch(
+          `/api/legislators/${encodeURIComponent(name)}/bills?page=${billsPage}&limit=10`
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        setBills(data.bills || []);
+        setBillsTotal(data.total || 0);
+        setBillsTotalPages(data.totalPages || 1);
+      } catch {
+        setBills([]);
+      } finally {
+        setBillsLoading(false);
+      }
+    };
+    fetchBills();
+  }, [name, billsPage]);
 
   if (loading) return <Loader text="Loading legislator" />;
 
@@ -183,6 +220,48 @@ function LegislatorDetail() {
           ))}
         </Panel>
       )}
+
+      <Panel title={`Sponsored Bills${billsTotal > 0 ? ` (${billsTotal.toLocaleString()})` : ''}`}>
+        {billsLoading ? (
+          <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+            Loading bills…
+          </div>
+        ) : bills.length === 0 ? (
+          <div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+            No sponsored bills found in the database.
+          </div>
+        ) : (
+          <>
+            {bills.map((bill, idx) => (
+              <div
+                key={bill.billId}
+                onClick={() => navigate(`/bills/${encodeURIComponent(bill.billId)}`)}
+                style={{
+                  padding: '12px 0',
+                  borderBottom: idx < bills.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-hover)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+              >
+                <div style={{ fontSize: '0.875rem', color: 'var(--text-primary)', marginBottom: '4px', lineHeight: 1.4 }}>
+                  {bill.billName || bill.billId}
+                </div>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  {bill.status && <StatusBadge label={bill.status} type={getStatusBadgeType2(bill.status)} />}
+                  {bill.category && <StatusBadge label={bill.category} type="info" />}
+                  {bill.latestProgressDate && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{bill.latestProgressDate}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+            {billsTotalPages > 1 && (
+              <Pagination page={billsPage} totalPages={billsTotalPages} onPageChange={setBillsPage} />
+            )}
+          </>
+        )}
+      </Panel>
     </div>
   );
 }

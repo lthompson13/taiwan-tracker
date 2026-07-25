@@ -16,6 +16,14 @@ const PARTY_OPTIONS = [
   { value: 'Independent', label: 'Independent' },
 ];
 
+const TERM_OPTIONS = [
+  { value: '11', label: 'Term 11 (current)' },
+  { value: '10', label: 'Term 10 (2020–2024)' },
+  { value: '9',  label: 'Term 9 (2016–2020)' },
+  { value: '8',  label: 'Term 8 (2012–2016)' },
+  { value: '',   label: 'All terms' },
+];
+
 function getPartyBadgeType(party) {
   if (!party) return 'default';
   if (party.includes('Democratic Progressive')) return 'success';
@@ -35,6 +43,7 @@ function Legislators() {
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
   const [partyFilter, setPartyFilter] = useState('');
+  const [termFilter, setTermFilter] = useState('11');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -45,6 +54,7 @@ function Legislators() {
         setError(null);
         const params = new URLSearchParams({ page: page.toString(), limit: LIMIT.toString() });
         if (partyFilter) params.set('party', partyFilter);
+        if (termFilter) params.set('term', termFilter);
 
         const res = await fetch(`/api/legislators?${params}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -61,13 +71,11 @@ function Legislators() {
     };
 
     fetchLegislators();
-  }, [page, partyFilter]);
+  }, [page, partyFilter, termFilter]);
 
   const handleFilterChange = (key, value) => {
-    if (key === 'party') {
-      setPartyFilter(value);
-      setPage(1);
-    }
+    if (key === 'party') { setPartyFilter(value); setPage(1); }
+    if (key === 'term')  { setTermFilter(value);  setPage(1); }
   };
 
   const filteredLegislators = legislators.filter((leg) => {
@@ -122,7 +130,7 @@ function Legislators() {
       <div style={{ marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid var(--border-subtle)' }}>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Legislators</h1>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>
-          {total.toLocaleString()} legislators
+          {total.toLocaleString()} legislator{total !== 1 ? 's' : ''}{termFilter ? ` · Term ${termFilter}` : ' across all terms'}
         </p>
       </div>
 
@@ -132,6 +140,7 @@ function Legislators() {
         placeholder="Search legislator name…"
         onSearch={() => {}}
         filters={[
+          { key: 'term',  label: 'Term',  value: termFilter,  options: TERM_OPTIONS  },
           { key: 'party', label: 'Party', value: partyFilter, options: PARTY_OPTIONS },
         ]}
         onFilterChange={handleFilterChange}

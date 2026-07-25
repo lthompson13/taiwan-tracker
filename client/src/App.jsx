@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Legislators from './pages/Legislators';
@@ -8,7 +8,6 @@ import BillDetail from './pages/BillDetail';
 import Committees from './pages/Committees';
 import Activity from './pages/Activity';
 import Watchlist from './pages/Watchlist';
-import Lists from './pages/Lists';
 import ListDetail from './pages/ListDetail';
 import Hearings from './pages/Hearings';
 import News from './pages/News';
@@ -39,7 +38,7 @@ function App() {
           <Route path="committees" element={<Committees />} />
           <Route path="activity" element={<Activity />} />
           <Route path="watchlist" element={<Watchlist />} />
-          <Route path="lists" element={<Lists />} />
+          <Route path="lists" element={<Navigate to="/watchlist?tab=lists" replace />} />
           <Route path="lists/:listId" element={<ListDetail />} />
           <Route path="hearings" element={<Hearings />} />
           <Route path="news" element={<News />} />

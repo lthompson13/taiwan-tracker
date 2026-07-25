@@ -4,6 +4,7 @@ const { fetchFromLY } = require('../lib/lyApi');
 const { translateLegislator } = require('../lib/translateFields');
 const { getStatus: getTranslationStatus } = require('../lib/translate');
 const { PARTY_MAP, mapValue } = require('../lib/filterMaps');
+const { getDb } = require('../lib/db');
 
 /**
  * Map a raw legislator object from the LY API to English keys.
@@ -88,27 +89,78 @@ router.get('/', async (req, res) => {
 /**
  * GET /:name
  * Find a legislator by name (Chinese or English).
+ * Searches Term 11 first, then falls back to all terms if not found.
  */
 router.get('/:name', async (req, res) => {
   const { name } = req.params;
 
-  const data = await fetchFromLY('legislators', { limit: 100 });
-
-  if (data.error) {
-    return res.status(data.status || 500).json(data);
+  async function findInData(params) {
+    const data = await fetchFromLY('legislators', params);
+    if (data.error) return { error: data };
+    const list = Array.isArray(data.legislators) ? data.legislators : [];
+    return { match: list.find((l) => l['委員姓名'] === name || l['委員英文姓名'] === name) };
   }
 
-  const list = Array.isArray(data.legislators) ? data.legislators : [];
+  // Search current term first (covers most cases and avoids large responses)
+  let result = await findInData({ '屆': '11', limit: 200 });
+  if (result.error) return res.status(result.error.status || 500).json(result.error);
 
-  const match = list.find(
-    (l) => l['委員姓名'] === name || l['委員英文姓名'] === name
-  );
+  // Fall back to all terms if not found in term 11
+  if (!result.match) {
+    result = await findInData({ limit: 200 });
+    if (result.error) return res.status(result.error.status || 500).json(result.error);
+  }
 
-  if (!match) {
+  if (!result.match) {
     return res.status(404).json({ error: true, message: 'Legislator not found' });
   }
 
-  res.json(await translateLegislator(mapLegislator(match)));
+  res.json(await translateLegislator(mapLegislator(result.match)));
+});
+
+/**
+ * GET /:name/bills
+ * Return synced bills where the proposer field contains this legislator's name.
+ * Searches the local archive (Chinese proposer text) for sponsored bills.
+ */
+router.get('/:name/bills', async (req, res) => {
+  const { name } = req.params;
+  const db = getDb();
+  if (!db) return res.status(503).json({ error: 'Database not configured', bills: [] });
+
+  const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20));
+  const page  = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const skip  = (page - 1) * limit;
+
+  try {
+    const where = { proposer: { contains: name, mode: 'insensitive' } };
+
+    const [bills, total] = await Promise.all([
+      db.bill.findMany({
+        where,
+        orderBy: [{ latestProgressDate: 'desc' }, { billId: 'desc' }],
+        skip,
+        take: limit,
+        select: {
+          billId: true,
+          billName: true,
+          status: true,
+          category: true,
+          sectors: true,
+          term: true,
+          session: true,
+          latestProgressDate: true,
+          proposer: true,
+        },
+      }),
+      db.bill.count({ where }),
+    ]);
+
+    res.json({ bills, total, page, totalPages: Math.ceil(total / limit) });
+  } catch (err) {
+    console.error('[legislators/:name/bills]', err.message);
+    res.status(500).json({ error: err.message, bills: [] });
+  }
 });
 
 module.exports = router;

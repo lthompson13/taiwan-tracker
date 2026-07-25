@@ -34,7 +34,7 @@ router.get('/', async (req, res) => {
   const limit = Math.min(MAX_LIMIT, Math.max(1, parseInt(req.query.limit, 10) || DEFAULT_LIMIT));
   const skip = (page - 1) * limit;
 
-  const { q, sector, term, status } = req.query;
+  const { q, sector, term, status, sort, ids } = req.query;
 
   // Build Prisma where clause
   const where = {};
@@ -68,14 +68,25 @@ router.get('/', async (req, res) => {
     where.status = { equals: status, mode: 'insensitive' };
   }
 
+  // Filter by explicit bill ID list (used when annotation filter is active)
+  if (ids) {
+    if (ids === '__none__') {
+      where.billId = { in: [] };
+    } else {
+      const idList = ids.split(',').map((s) => s.trim()).filter(Boolean);
+      where.billId = { in: idList };
+    }
+  }
+
+  const orderBy = sort === 'oldest'
+    ? [{ latestProgressDate: 'asc' }, { billId: 'asc' }]
+    : [{ latestProgressDate: 'desc' }, { billId: 'desc' }];
+
   try {
     const [bills, total, totalInArchive, latestSync] = await Promise.all([
       db.bill.findMany({
         where,
-        orderBy: [
-          { latestProgressDate: 'desc' },
-          { billId: 'desc' },
-        ],
+        orderBy,
         skip,
         take: limit,
         select: {

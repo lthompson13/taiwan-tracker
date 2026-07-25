@@ -12,8 +12,7 @@ const NAV_ITEMS = [
   { to: '/activity', label: 'Activity' },
   { to: '/hearings',  label: 'Hearings' },
   { to: '/news',      label: 'News' },
-  { to: '/watchlist', label: 'My Watchlist' },
-  { to: '/lists',    label: 'My Lists' },
+  { to: '/watchlist', label: 'My Bills' },
 ];
 
 function Layout() {
@@ -74,9 +73,11 @@ function Layout() {
                   <NavLink
                     to={to}
                     end={to === '/'}
-                    className={({ isActive }) =>
-                      `layout-nav-link${isActive ? ' active' : ''}`
-                    }
+                    className={({ isActive }) => {
+                      // Keep "My Bills" active when visiting /lists or /lists/:id
+                      const alsoActive = to === '/watchlist' && window.location.pathname.startsWith('/lists');
+                      return `layout-nav-link${isActive || alsoActive ? ' active' : ''}`;
+                    }}
                   >
                     {label}
                   </NavLink>

@@ -36,6 +36,9 @@ function ListDetail() {
   // Delete
   const [deleting, setDeleting] = useState(false);
 
+  // List-level notifications
+  const [togglingNotify, setTogglingNotify] = useState(false);
+
   // Per-bill remove
   const [removing, setRemoving] = useState(null);
 
@@ -79,13 +82,32 @@ function ListDetail() {
     }
   };
 
+  const handleToggleNotify = async () => {
+    if (togglingNotify) return;
+    setTogglingNotify(true);
+    const newVal = !list.notifyEnabled;
+    try {
+      const res = await fetch(`/api/user/lists/${listId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ notifyEnabled: newVal }),
+      });
+      if (res.ok) setList(l => ({ ...l, notifyEnabled: newVal }));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setTogglingNotify(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!window.confirm(`Delete list "${list.name}"? This cannot be undone.`)) return;
     setDeleting(true);
     try {
       const res = await fetch(`/api/user/lists/${listId}`, { method: 'DELETE', credentials: 'include' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      navigate('/lists');
+      navigate('/watchlist?tab=lists');
     } catch (err) {
       console.error(err);
       setDeleting(false);
@@ -117,7 +139,7 @@ function ListDetail() {
   if (error) {
     return (
       <div>
-        <button onClick={() => navigate('/lists')} style={{ background: 'transparent', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)', color: 'var(--navy)', padding: '6px 14px', fontSize: '0.825rem', fontWeight: 500, cursor: 'pointer', marginBottom: '20px' }}>
+        <button onClick={() => navigate('/watchlist?tab=lists')} style={{ background: 'transparent', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)', color: 'var(--navy)', padding: '6px 14px', fontSize: '0.825rem', fontWeight: 500, cursor: 'pointer', marginBottom: '20px' }}>
           &larr; My Lists
         </button>
         <div style={{ padding: '12px 14px', background: 'var(--danger-bg)', color: 'var(--danger)', borderRadius: 'var(--radius-md)', fontSize: '0.875rem' }}>
@@ -135,7 +157,7 @@ function ListDetail() {
     <div>
       {/* Back */}
       <button
-        onClick={() => navigate('/lists')}
+        onClick={() => navigate('/watchlist?tab=lists')}
         style={{ background: 'transparent', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)', color: 'var(--navy)', padding: '6px 14px', fontSize: '0.825rem', fontWeight: 500, cursor: 'pointer', marginBottom: '20px' }}
       >
         &larr; My Lists
@@ -178,7 +200,15 @@ function ListDetail() {
                 {items.length} bill{items.length !== 1 ? 's' : ''}
               </p>
             </div>
-            <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: '8px', flexShrink: 0, alignItems: 'center' }}>
+              <button
+                onClick={handleToggleNotify}
+                disabled={togglingNotify}
+                title={list.notifyEnabled ? 'List notifications on — click to turn off' : 'Get email alerts for all bills in this list'}
+                style={{ fontSize: '0.875rem', background: list.notifyEnabled ? 'var(--navy-light)' : 'transparent', border: `1px solid ${list.notifyEnabled ? 'var(--navy)' : 'var(--border-default)'}`, borderRadius: 'var(--radius-sm)', padding: '5px 10px', cursor: 'pointer', color: list.notifyEnabled ? 'var(--navy)' : 'var(--text-muted)', lineHeight: 1, fontWeight: list.notifyEnabled ? 600 : 400 }}
+              >
+                🔔{list.notifyEnabled ? ' On' : ''}
+              </button>
               <button
                 onClick={() => setEditingName(true)}
                 style={{ padding: '6px 14px', background: 'transparent', border: '1px solid var(--border-default)', borderRadius: 'var(--radius-sm)', fontSize: '0.8rem', color: 'var(--text-secondary)', cursor: 'pointer' }}

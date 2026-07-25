@@ -50,7 +50,8 @@ const MAX_MEM_CACHE_SIZE = 5000;
 // L2: Redis persistent cache (survives redeploys)
 // Populated lazily; null if env vars are absent.
 let redisClient = null;
-const REDIS_KEY_PREFIX = 'trans:v1:';
+// v2: bumped to flush cached mistranslations (e.g. 本院 → "This Hospital")
+const REDIS_KEY_PREFIX = 'trans:v2:';
 const REDIS_TTL_SECONDS = 7776000; // 90 days
 
 function getRedisClient() {
@@ -116,6 +117,22 @@ function getTranslateClient() {
   return translateClient;
 }
 
+// Pre-processing substitutions applied before sending text to Google Translate.
+// Prevents context-free mistranslations of characters with multiple meanings.
+const preSubstitutions = [
+  // 本院 means "this institution/house" in legislative context (立法院 = Legislative Yuan).
+  // Without context Google maps 院 to "hospital". Replace with the unambiguous full name.
+  [/本院/g, '立法院'],
+];
+
+function preProcess(text) {
+  let out = text;
+  for (const [pattern, replacement] of preSubstitutions) {
+    out = out.replace(pattern, replacement);
+  }
+  return out;
+}
+
 /**
  * Translate a single string from Chinese to English.
  * Resolution order: static map → L1 memory → L2 Redis → Google API
@@ -146,7 +163,7 @@ async function translateText(text) {
   if (!client) return text;
 
   try {
-    const [translation] = await client.translate(trimmed, { from: 'zh-TW', to: 'en' });
+    const [translation] = await client.translate(preProcess(trimmed), { from: 'zh-TW', to: 'en' });
     recordSuccess();
     setMemCache(trimmed, translation);
     if (redis) {
@@ -228,7 +245,7 @@ async function translateBatch(texts) {
   }
 
   try {
-    const apiTexts = needsApi.map(({ trimmed }) => trimmed);
+    const apiTexts = needsApi.map(({ trimmed }) => preProcess(trimmed));
     const [translations] = await client.translate(apiTexts, { from: 'zh-TW', to: 'en' });
     recordSuccess();
     const translatedArray = Array.isArray(translations) ? translations : [translations];
