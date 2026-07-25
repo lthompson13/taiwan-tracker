@@ -1117,9 +1117,26 @@ function BillDetail() {
                   : 'Structured bill text (案由 / 說明) is not available for this bill.'}
                 <div style={{ fontSize: '0.8rem', marginTop: '6px', color: 'var(--text-muted)' }}>
                   {billText?.docType === '審查報告'
-                    ? 'Review reports document the committee\'s decision on a bill. The original proposal with full draft text is a separate entry in the system.'
+                    ? "Review reports document the committee's decision on a bill. The original proposal with full draft text is a separate entry."
                     : 'The LY API does not include structured text for this bill type.'}
                 </div>
+                {billText?.relatedBills?.length > 0 && (
+                  <div style={{ marginTop: '14px' }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+                      {billText.docType === '審查報告' ? 'Original Proposal' : 'Related Bills'}
+                    </div>
+                    {billText.relatedBills.map((rb) => (
+                      <div key={rb.billId} style={{ marginBottom: '6px' }}>
+                        <button
+                          onClick={() => navigate(`/bills/${encodeURIComponent(rb.billId)}`)}
+                          style={{ background: 'none', border: 'none', padding: 0, color: 'var(--teal)', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.875rem', textAlign: 'left' }}
+                        >
+                          {rb.billName || rb.billId} →
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div style={{ marginTop: '14px', display: 'flex', gap: '14px', justifyContent: 'center', flexWrap: 'wrap' }}>
                   {billText?.pdfUrl && (
                     <a href={billText.pdfUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--teal)', textDecoration: 'underline' }}>
@@ -1227,6 +1244,22 @@ function BillDetail() {
                           </div>
                         </div>
                       ))}
+                    </div>
+                  ))}
+                </Panel>
+              )}
+
+              {/* Committee review report / related bills */}
+              {billText.relatedBills?.length > 0 && (
+                <Panel title={billText.docType === '審查報告' ? 'Original Proposal' : 'Committee Review Report'}>
+                  {billText.relatedBills.map((rb) => (
+                    <div key={rb.billId} style={{ padding: '8px 0' }}>
+                      <button
+                        onClick={() => navigate(`/bills/${encodeURIComponent(rb.billId)}`)}
+                        style={{ background: 'none', border: 'none', padding: 0, color: 'var(--teal)', textDecoration: 'underline', cursor: 'pointer', fontSize: '0.875rem', textAlign: 'left' }}
+                      >
+                        {rb.billName || rb.billId} →
+                      </button>
                     </div>
                   ))}
                 </Panel>

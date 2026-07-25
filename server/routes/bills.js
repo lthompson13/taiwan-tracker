@@ -250,12 +250,18 @@ router.get('/:id/text', async (req, res) => {
   });
   const pdfUrl  = pdfAtt?.['網址'] || null;
   const lyUrl   = raw['url'] || null;
-  const docType = raw['提案來源'] || null; // 'review report' vs original proposal
+  const docType = raw['提案來源'] || null;
+
+  // Related bills (關連議案) — links between original proposals and review reports
+  const relatedBills = (Array.isArray(raw['關連議案']) ? raw['關連議案'] : [])
+    .filter((b) => b['議案編號'])
+    .map((b) => ({ billId: b['議案編號'], billName: b['議案名稱'] || null }));
 
   res.json({
     billId: id,
     hasText: !!(reason || explanation || comparisons.length > 0),
     docType,
+    relatedBills,
     reason,
     explanation,
     comparisons,
