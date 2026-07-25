@@ -248,12 +248,14 @@ router.get('/:id/text', async (req, res) => {
     const name = a['名稱'] || '';
     return name.includes('PDF') || (a['網址'] || '').toLowerCase().endsWith('.pdf');
   });
-  const pdfUrl = pdfAtt?.['網址'] || null;
-  const lyUrl  = raw['url'] || null;
+  const pdfUrl  = pdfAtt?.['網址'] || null;
+  const lyUrl   = raw['url'] || null;
+  const docType = raw['提案來源'] || null; // 'review report' vs original proposal
 
   res.json({
     billId: id,
     hasText: !!(reason || explanation || comparisons.length > 0),
+    docType,
     reason,
     explanation,
     comparisons,

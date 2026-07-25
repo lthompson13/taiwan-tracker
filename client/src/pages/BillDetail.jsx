@@ -1112,9 +1112,13 @@ function BillDetail() {
           ) : !billText || !billText.hasText ? (
             <Panel>
               <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                Structured bill text (案由 / 說明) is not available for this bill.
+                {billText?.docType === '審查報告'
+                  ? 'This entry is a committee review report, not the original bill proposal.'
+                  : 'Structured bill text (案由 / 說明) is not available for this bill.'}
                 <div style={{ fontSize: '0.8rem', marginTop: '6px', color: 'var(--text-muted)' }}>
-                  This is common for bills that have already passed committee review — the original draft text is replaced by the review report.
+                  {billText?.docType === '審查報告'
+                    ? 'Review reports document the committee\'s decision on a bill. The original proposal with full draft text is a separate entry in the system.'
+                    : 'The LY API does not include structured text for this bill type.'}
                 </div>
                 <div style={{ marginTop: '14px', display: 'flex', gap: '14px', justifyContent: 'center', flexWrap: 'wrap' }}>
                   {billText?.pdfUrl && (
