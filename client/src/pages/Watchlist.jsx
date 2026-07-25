@@ -48,6 +48,13 @@ function Watchlist() {
   const [tagFilter, setTagFilter] = useState('');
   const [togglingNotify, setTogglingNotify] = useState(null);
 
+  // Report mode
+  const [reportMode, setReportMode] = useState(false);
+  const [selectedBills, setSelectedBills] = useState(new Set());
+  const [reportFormat, setReportFormat] = useState('docx');
+  const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState(null);
+
   useEffect(() => {
     if (!isSignedIn) { setLoading(false); return; }
 
@@ -77,6 +84,61 @@ function Watchlist() {
       console.error('[watchlist] toggle notify error:', err.message);
     } finally {
       setTogglingNotify(null);
+    }
+  };
+
+  const handleToggleReportMode = () => {
+    setReportMode((prev) => !prev);
+    setSelectedBills(new Set());
+    setGenerateError(null);
+  };
+
+  const handleToggleBillSelect = (e, billId) => {
+    e.stopPropagation();
+    setSelectedBills((prev) => {
+      const next = new Set(prev);
+      if (next.has(billId)) next.delete(billId);
+      else next.add(billId);
+      return next;
+    });
+  };
+
+  const handleSelectAll = (filteredItems) => {
+    setSelectedBills(new Set(filteredItems.map((i) => i.billId)));
+  };
+
+  const handleDeselectAll = () => setSelectedBills(new Set());
+
+  const handleGenerateReport = async () => {
+    const billIds = [...selectedBills];
+    if (billIds.length === 0) return;
+    setGenerating(true);
+    setGenerateError(null);
+    try {
+      const res = await fetch('/api/user/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ billIds, format: reportFormat }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Server error ${res.status}`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const dateStr = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `billscope-report-${dateStr}.${reportFormat}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setGenerateError(err.message);
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -127,18 +189,58 @@ function Watchlist() {
     return true;
   });
 
+  const allFilteredSelected = filtered.length > 0 && filtered.every((i) => selectedBills.has(i.billId));
+
   return (
-    <div>
-      <div style={{ marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid var(--border-subtle)' }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>My Watchlist</h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>
-          {items.length} tracked bill{items.length !== 1 ? 's' : ''}
-        </p>
+    <div style={{ paddingBottom: reportMode ? '80px' : 0 }}>
+      {/* Header */}
+      <div style={{ marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>My Watchlist</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', margin: '4px 0 0 0' }}>
+            {items.length} tracked bill{items.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+        {items.length > 0 && (
+          <button
+            onClick={handleToggleReportMode}
+            style={{
+              padding: '7px 14px',
+              fontSize: '0.825rem',
+              fontWeight: 600,
+              border: `1px solid ${reportMode ? 'var(--teal)' : 'var(--border-default)'}`,
+              borderRadius: 'var(--radius-sm)',
+              background: reportMode ? 'var(--teal-light)' : 'var(--bg-elevated)',
+              color: reportMode ? 'var(--teal)' : 'var(--text-secondary)',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {reportMode ? '✕ Cancel' : '⬇ Export Report'}
+          </button>
+        )}
       </div>
 
-      {/* Filters */}
+      {/* Filters + select-all in report mode */}
       {items.length > 0 && (
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '16px' }}>
+          {reportMode && (
+            <button
+              onClick={() => allFilteredSelected ? handleDeselectAll() : handleSelectAll(filtered)}
+              style={{
+                padding: '5px 12px',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                border: '1px solid var(--border-default)',
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--bg-elevated)',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+              }}
+            >
+              {allFilteredSelected ? 'Deselect all' : 'Select all'}
+            </button>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500 }}>Stance:</label>
             <select style={selectStyle} value={stanceFilter} onChange={(e) => setStanceFilter(e.target.value)}>
@@ -191,19 +293,42 @@ function Watchlist() {
             const bill = item.bill;
             const stance = STANCE_LABELS[item.stance];
             const priority = PRIORITY_LABELS[item.priority];
+            const isSelected = selectedBills.has(item.billId);
             return (
               <div
                 key={item.billId}
-                onClick={() => navigate(`/bills/${encodeURIComponent(item.billId)}`)}
+                onClick={reportMode
+                  ? (e) => handleToggleBillSelect(e, item.billId)
+                  : () => navigate(`/bills/${encodeURIComponent(item.billId)}`)
+                }
                 style={{
                   padding: '14px 0',
                   borderBottom: idx < filtered.length - 1 ? '1px solid var(--border-subtle)' : 'none',
                   cursor: 'pointer',
+                  background: reportMode && isSelected ? 'var(--teal-light)' : 'transparent',
+                  transition: 'background 0.1s',
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
-                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                onMouseEnter={(e) => {
+                  if (!(reportMode && isSelected)) e.currentTarget.style.background = 'var(--bg-hover)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = reportMode && isSelected ? 'var(--teal-light)' : 'transparent';
+                }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
+                  {/* Checkbox in report mode */}
+                  {reportMode && (
+                    <div style={{ flexShrink: 0, paddingTop: '2px' }}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(e) => handleToggleBillSelect(e, item.billId)}
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ width: '16px', height: '16px', accentColor: 'var(--teal)', cursor: 'pointer' }}
+                      />
+                    </div>
+                  )}
+
                   <div style={{ flex: 1 }}>
                     {/* Bill name */}
                     <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)', marginBottom: '6px', lineHeight: 1.4 }}>
@@ -251,32 +376,91 @@ function Watchlist() {
                     )}
                   </div>
 
-                  {/* Notify toggle + Term / date */}
-                  <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
-                    <button
-                      onClick={(e) => handleToggleNotify(e, item)}
-                      disabled={togglingNotify === item.billId}
-                      title={item.notifyEnabled ? 'Notifications on — click to turn off' : 'Click to get email alerts for this bill'}
-                      style={{ fontSize: '0.9rem', background: item.notifyEnabled ? 'var(--navy-light)' : 'transparent', border: `1px solid ${item.notifyEnabled ? 'var(--navy)' : 'var(--border-default)'}`, borderRadius: 'var(--radius-sm)', padding: '3px 8px', cursor: 'pointer', color: item.notifyEnabled ? 'var(--navy)' : 'var(--text-muted)', lineHeight: 1 }}
-                    >
-                      🔔
-                    </button>
-                    {bill?.term && (
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '2px' }}>
-                        Term {bill.term}{bill.session ? ` · Session ${bill.session}` : ''}
-                      </div>
-                    )}
-                    {bill?.latestProgressDate && (
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                        {bill.latestProgressDate}
-                      </div>
-                    )}
-                  </div>
+                  {/* Notify toggle + Term / date (hidden in report mode) */}
+                  {!reportMode && (
+                    <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
+                      <button
+                        onClick={(e) => handleToggleNotify(e, item)}
+                        disabled={togglingNotify === item.billId}
+                        title={item.notifyEnabled ? 'Notifications on — click to turn off' : 'Click to get email alerts for this bill'}
+                        style={{ fontSize: '0.9rem', background: item.notifyEnabled ? 'var(--navy-light)' : 'transparent', border: `1px solid ${item.notifyEnabled ? 'var(--navy)' : 'var(--border-default)'}`, borderRadius: 'var(--radius-sm)', padding: '3px 8px', cursor: 'pointer', color: item.notifyEnabled ? 'var(--navy)' : 'var(--text-muted)', lineHeight: 1 }}
+                      >
+                        🔔
+                      </button>
+                      {bill?.term && (
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '2px' }}>
+                          Term {bill.term}{bill.session ? ` · Session ${bill.session}` : ''}
+                        </div>
+                      )}
+                      {bill?.latestProgressDate && (
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          {bill.latestProgressDate}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             );
           })}
         </Panel>
+      )}
+
+      {/* Floating report action bar */}
+      {reportMode && (
+        <div style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          background: 'var(--bg-elevated)',
+          borderTop: '1px solid var(--border-default)',
+          padding: '12px 24px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          flexWrap: 'wrap',
+          zIndex: 100,
+          boxShadow: '0 -2px 12px rgba(0,0,0,0.08)',
+        }}>
+          <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
+            {selectedBills.size === 0
+              ? 'Select bills to include in report'
+              : `${selectedBills.size} bill${selectedBills.size !== 1 ? 's' : ''} selected`}
+          </span>
+
+          <div style={{ flex: 1 }} />
+
+          {generateError && (
+            <span style={{ fontSize: '0.8rem', color: '#b91c1c' }}>{generateError}</span>
+          )}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500 }}>Format:</label>
+            <select style={selectStyle} value={reportFormat} onChange={(e) => setReportFormat(e.target.value)}>
+              <option value="docx">Word (.docx)</option>
+              <option value="xlsx">Excel (.xlsx)</option>
+            </select>
+          </div>
+
+          <button
+            onClick={handleGenerateReport}
+            disabled={generating || selectedBills.size === 0}
+            style={{
+              padding: '8px 18px',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              background: selectedBills.size === 0 ? 'var(--border-default)' : 'var(--navy)',
+              color: selectedBills.size === 0 ? 'var(--text-muted)' : 'white',
+              border: 'none',
+              borderRadius: 'var(--radius-sm)',
+              cursor: selectedBills.size === 0 || generating ? 'not-allowed' : 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {generating ? 'Generating…' : '⬇ Generate Report'}
+          </button>
+        </div>
       )}
     </div>
   );

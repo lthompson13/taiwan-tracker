@@ -39,6 +39,7 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/archive', require('./routes/archive'));
 app.use('/api/user/tags', require('./routes/user-tags'));
 app.use('/api/user/lists', require('./routes/user-lists'));
+app.use('/api/user/reports', require('./routes/reports'));
 app.use('/api/user', require('./routes/user'));
 app.use('/api/stripe', require('./routes/stripe'));
 app.use('/api/meets',  require('./routes/meets'));
