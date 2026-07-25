@@ -242,10 +242,14 @@ router.get('/:id/text', async (req, res) => {
     })),
   }));
 
-  // PDF attachment URL (first 關係文書PDF found)
+  // PDF attachment — accept any variant name that indicates a PDF document
   const attachments = Array.isArray(raw['相關附件']) ? raw['相關附件'] : [];
-  const pdfAtt = attachments.find((a) => a['名稱'] === '關係文書PDF');
+  const pdfAtt = attachments.find((a) => {
+    const name = a['名稱'] || '';
+    return name.includes('PDF') || (a['網址'] || '').toLowerCase().endsWith('.pdf');
+  });
   const pdfUrl = pdfAtt?.['網址'] || null;
+  const lyUrl  = raw['url'] || null;
 
   res.json({
     billId: id,
@@ -254,6 +258,7 @@ router.get('/:id/text', async (req, res) => {
     explanation,
     comparisons,
     pdfUrl,
+    lyUrl,
     translation: translation ? { reason: translation.reason, explanation: translation.explanation } : null,
   });
 });

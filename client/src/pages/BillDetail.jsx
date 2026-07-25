@@ -1112,14 +1112,22 @@ function BillDetail() {
           ) : !billText || !billText.hasText ? (
             <Panel>
               <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-                Full bill text is not available for this bill type.
-                {billText?.pdfUrl && (
-                  <div style={{ marginTop: '12px' }}>
+                Structured bill text (案由 / 說明) is not available for this bill.
+                <div style={{ fontSize: '0.8rem', marginTop: '6px', color: 'var(--text-muted)' }}>
+                  This is common for bills that have already passed committee review — the original draft text is replaced by the review report.
+                </div>
+                <div style={{ marginTop: '14px', display: 'flex', gap: '14px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                  {billText?.pdfUrl && (
                     <a href={billText.pdfUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--teal)', textDecoration: 'underline' }}>
-                      View official PDF →
+                      Download PDF →
                     </a>
-                  </div>
-                )}
+                  )}
+                  {(billText?.lyUrl || bill?.url) && (
+                    <a href={billText?.lyUrl || bill?.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--teal)', textDecoration: 'underline' }}>
+                      View on Legislative Yuan →
+                    </a>
+                  )}
+                </div>
               </div>
             </Panel>
           ) : (
