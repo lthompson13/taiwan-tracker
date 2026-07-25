@@ -1,17 +1,39 @@
 const express = require('express');
 const router = express.Router();
+const fetch = require('node-fetch');
+const Anthropic = require('@anthropic-ai/sdk');
 const { fetchFromLY } = require('../lib/lyApi');
 const { translateBill } = require('../lib/translateFields');
 const { getStatus: getTranslationStatus } = require('../lib/translate');
 const { tagBill } = require('../lib/sectorTags');
 const { getSummary } = require('../lib/summaries');
-const { getUser, isSubscriber } = require('../lib/auth');
+const { requireAuth, getUser, isSubscriber } = require('../lib/auth');
+const { getDb } = require('../lib/db');
 const {
   BILL_CATEGORY_MAP,
   BILL_STATUS_MAP,
   mapValue,
 } = require('../lib/filterMaps');
 const { translateMeet } = require('../lib/translateFields');
+
+const LY_BASE = 'https://v2.ly.govapi.tw';
+
+let _anthropic = null;
+function getAnthropic() {
+  if (!_anthropic && process.env.ANTHROPIC_API_KEY) {
+    _anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  }
+  return _anthropic;
+}
+
+async function fetchBillTextFromLY(billId) {
+  const url = `${LY_BASE}/bills/${encodeURIComponent(billId)}`;
+  const r = await fetch(url, { headers: { 'User-Agent': 'BillScopeTW/1.0' }, timeout: 10000 });
+  if (!r.ok) return null;
+  const json = await r.json();
+  if (json.error) return null;
+  return json.data || null;
+}
 
 /**
  * Map a raw bill object from the LY API to English keys.
@@ -184,6 +206,138 @@ router.get('/:id/meets', async (req, res) => {
   });
   const translated = await Promise.all(meets.map(translateMeet));
   res.json({ meets: translated, total: data.total || meets.length });
+});
+
+/**
+ * GET /:id/text
+ * Fetch the full Chinese bill text (案由, 說明, 對照表) directly from the LY API.
+ * Also returns the cached English translation if one exists.
+ * Available to all authenticated users; translation is Pro-only.
+ */
+router.get('/:id/text', async (req, res) => {
+  const { id } = req.params;
+  const db = getDb();
+
+  const [raw, translation] = await Promise.all([
+    fetchBillTextFromLY(id),
+    db ? db.billTextTranslation.findUnique({ where: { billId: id } }) : null,
+  ]);
+
+  if (!raw) {
+    return res.status(404).json({ error: 'Bill text not available from LY API' });
+  }
+
+  const reason      = raw['案由']     || null;
+  const explanation = raw['說明']     || null;
+  const rawComparisons = Array.isArray(raw['對照表']) ? raw['對照表'] : [];
+
+  const comparisons = rawComparisons.map((entry) => ({
+    title:           entry['title'] || entry['law_name'] || null,
+    lawName:         entry['law_name'] || null,
+    legislationType: entry['立法種類'] || null,
+    rows: (Array.isArray(entry['rows']) ? entry['rows'] : []).map((row) => ({
+      proposed: row['修正'] || null,
+      current:  row['現行'] || null,
+      note:     row['說明'] || null,
+    })),
+  }));
+
+  // PDF attachment URL (first 關係文書PDF found)
+  const attachments = Array.isArray(raw['相關附件']) ? raw['相關附件'] : [];
+  const pdfAtt = attachments.find((a) => a['名稱'] === '關係文書PDF');
+  const pdfUrl = pdfAtt?.['網址'] || null;
+
+  res.json({
+    billId: id,
+    hasText: !!(reason || explanation || comparisons.length > 0),
+    reason,
+    explanation,
+    comparisons,
+    pdfUrl,
+    translation: translation ? { reason: translation.reason, explanation: translation.explanation } : null,
+  });
+});
+
+/**
+ * POST /:id/translate
+ * Generate an English translation of the bill's 案由 and 說明 using Claude.
+ * Result is cached in BillTextTranslation. Pro subscription required.
+ */
+router.post('/:id/translate', requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const userId = getUser(req);
+  if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+  const subscribed = await isSubscriber(userId);
+  if (!subscribed) return res.status(403).json({ error: 'Pro subscription required' });
+
+  const db = getDb();
+  if (!db) return res.status(503).json({ error: 'Database not configured' });
+
+  const ai = getAnthropic();
+  if (!ai) return res.status(503).json({ error: 'Translation not configured on this server' });
+
+  // Return cached translation if available
+  const existing = await db.billTextTranslation.findUnique({ where: { billId: id } });
+  if (existing) return res.json({ reason: existing.reason, explanation: existing.explanation });
+
+  // Fetch the bill text
+  const raw = await fetchBillTextFromLY(id);
+  if (!raw) return res.status(404).json({ error: 'Bill text not available from LY API' });
+
+  const reason      = raw['案由']  || '';
+  const explanation = raw['說明'] || '';
+
+  if (!reason && !explanation) {
+    return res.status(404).json({ error: 'No translatable text found for this bill' });
+  }
+
+  try {
+    const prompt = `You are a professional translator specializing in Taiwan legislative documents. Translate the following Chinese bill text sections into clear, accurate English suitable for policy analysts.
+
+Return ONLY a JSON object with exactly these two keys (omit a key if the source is empty):
+{
+  "reason": "<translation of the Purpose/Reason section>",
+  "explanation": "<translation of the Explanation section>"
+}
+
+Do not add any commentary, markdown, or extra text — only the JSON object.
+
+PURPOSE / REASON (案由):
+${reason}
+
+EXPLANATION / DETAILS (說明):
+${explanation}`;
+
+    const message = await ai.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 2048,
+      messages: [{ role: 'user', content: prompt }],
+    });
+
+    const content = message.content[0]?.type === 'text' ? message.content[0].text.trim() : '';
+    let parsed = {};
+    try {
+      // Strip any accidental markdown fences
+      const cleaned = content.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+      parsed = JSON.parse(cleaned);
+    } catch {
+      return res.status(500).json({ error: 'Translation failed — could not parse Claude response' });
+    }
+
+    const saved = await db.billTextTranslation.create({
+      data: {
+        billId: id,
+        reason:      parsed.reason      || null,
+        explanation: parsed.explanation || null,
+      },
+    });
+
+    res.json({ reason: saved.reason, explanation: saved.explanation });
+  } catch (err) {
+    console.error('[bills/translate] error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 /**

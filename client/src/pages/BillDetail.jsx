@@ -121,7 +121,7 @@ const linkStyle = {
   textDecoration: 'none',
 };
 
-const TABS = ['Summary', 'Actions', 'Documents', 'Committees'];
+const TABS = ['Summary', 'Actions', 'Documents', 'Bill Text', 'Committees'];
 
 const TODAY_STR = new Date().toISOString().slice(0, 10);
 
@@ -201,6 +201,13 @@ function BillDetail() {
   // Hearings (bill-specific meets)
   const [billMeets, setBillMeets]         = useState(null); // null = not yet loaded
   const [meetsLoading, setMeetsLoading]   = useState(false);
+
+  // Bill text (Pro: translation)
+  const [billText, setBillText]           = useState(null);   // null = not yet loaded
+  const [textLoading, setTextLoading]     = useState(false);
+  const [textError, setTextError]         = useState(null);
+  const [translating, setTranslating]     = useState(false);
+  const [translateError, setTranslateError] = useState(null);
 
   useEffect(() => {
     const fetchBill = async () => {
@@ -407,6 +414,17 @@ function BillDetail() {
       .finally(() => setMeetsLoading(false));
   }, [activeTab, id, billMeets]);
 
+  useEffect(() => {
+    if (activeTab !== 'Bill Text' || !id || billText !== null) return;
+    setTextLoading(true);
+    setTextError(null);
+    fetch(`/api/bills/${encodeURIComponent(id)}/text`)
+      .then((r) => r.ok ? r.json() : r.json().then((e) => Promise.reject(e)))
+      .then((data) => setBillText(data))
+      .catch((e) => setTextError(e?.error || 'Failed to load bill text'))
+      .finally(() => setTextLoading(false));
+  }, [activeTab, id, billText]);
+
   const handleToggleList = async (listItem) => {
     const inList = listItem.hasBill;
     try {
@@ -483,6 +501,24 @@ function BillDetail() {
     const newNotify = !annotation.notifyEnabled;
     setAnnotation((a) => ({ ...a, notifyEnabled: newNotify }));
     updateAnnotation({ notifyEnabled: newNotify });
+  };
+
+  const handleTranslate = async () => {
+    setTranslating(true);
+    setTranslateError(null);
+    try {
+      const res = await fetch(`/api/bills/${encodeURIComponent(id)}/translate`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
+      setBillText((prev) => ({ ...prev, translation: data }));
+    } catch (err) {
+      setTranslateError(err.message);
+    } finally {
+      setTranslating(false);
+    }
   };
   const handleSaveNote = async () => {
     setSavingNote(true);
@@ -1062,6 +1098,137 @@ function BillDetail() {
                 View on Legislative Yuan website →
               </a>
             </Panel>
+          )}
+        </div>
+      )}
+
+      {/* ── Tab: Bill Text ── */}
+      {activeTab === 'Bill Text' && (
+        <div>
+          {textLoading ? (
+            <Panel><div style={{ padding: '24px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>Loading bill text…</div></Panel>
+          ) : textError ? (
+            <Panel><div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>{textError}</div></Panel>
+          ) : !billText || !billText.hasText ? (
+            <Panel>
+              <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+                Full bill text is not available for this bill type.
+                {billText?.pdfUrl && (
+                  <div style={{ marginTop: '12px' }}>
+                    <a href={billText.pdfUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--teal)', textDecoration: 'underline' }}>
+                      View official PDF →
+                    </a>
+                  </div>
+                )}
+              </div>
+            </Panel>
+          ) : (
+            <>
+              {/* Translation controls */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Original Chinese text from Legislative Yuan
+                </div>
+                {billText.translation ? (
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--teal)', background: 'var(--teal-light)', border: '1px solid var(--teal)', borderRadius: '999px', padding: '2px 10px' }}>
+                    Translated
+                  </span>
+                ) : isSubscribed ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {translateError && <span style={{ fontSize: '0.8rem', color: '#b91c1c' }}>{translateError}</span>}
+                    <button
+                      onClick={handleTranslate}
+                      disabled={translating}
+                      style={{ padding: '5px 14px', fontSize: '0.8rem', fontWeight: 600, background: 'var(--navy)', color: 'white', border: 'none', borderRadius: 'var(--radius-sm)', cursor: translating ? 'not-allowed' : 'pointer' }}
+                    >
+                      {translating ? 'Translating…' : 'Translate to English'}
+                    </button>
+                  </div>
+                ) : (
+                  <span style={{ fontSize: '0.775rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                    <a href="/upgrade" style={{ color: 'var(--teal)' }}>Pro</a> — translate to English
+                  </span>
+                )}
+              </div>
+
+              {/* Purpose / Reason (案由) */}
+              {billText.reason && (
+                <Panel title="Purpose">
+                  {billText.translation?.reason && (
+                    <div style={{ marginBottom: '14px', paddingBottom: '14px', borderBottom: '1px solid var(--border-subtle)' }}>
+                      <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--teal)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>English</div>
+                      <div style={{ fontSize: '0.875rem', color: 'var(--text-primary)', lineHeight: 1.65 }}>{billText.translation.reason}</div>
+                    </div>
+                  )}
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Chinese (Original)</div>
+                  <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.65 }}>{billText.reason}</div>
+                </Panel>
+              )}
+
+              {/* Explanation (說明) */}
+              {billText.explanation && (
+                <Panel title="Explanation">
+                  {billText.translation?.explanation && (
+                    <div style={{ marginBottom: '14px', paddingBottom: '14px', borderBottom: '1px solid var(--border-subtle)' }}>
+                      <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--teal)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>English</div>
+                      <div style={{ fontSize: '0.875rem', color: 'var(--text-primary)', lineHeight: 1.65, whiteSpace: 'pre-line' }}>{billText.translation.explanation}</div>
+                    </div>
+                  )}
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Chinese (Original)</div>
+                  <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.65, whiteSpace: 'pre-line' }}>{billText.explanation}</div>
+                </Panel>
+              )}
+
+              {/* Proposed Changes (對照表) */}
+              {billText.comparisons && billText.comparisons.length > 0 && (
+                <Panel title={`Proposed Changes (${billText.comparisons.reduce((n, c) => n + c.rows.length, 0)} article${billText.comparisons.reduce((n, c) => n + c.rows.length, 0) !== 1 ? 's' : ''})`}>
+                  <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                    Full legal comparison text. Translation is not available for this section.
+                  </div>
+                  {billText.comparisons.map((entry, ei) => (
+                    <div key={ei} style={{ marginBottom: ei < billText.comparisons.length - 1 ? '20px' : 0 }}>
+                      {entry.lawName && (
+                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--navy)', marginBottom: '8px' }}>
+                          {entry.lawName}{entry.legislationType ? ` — ${entry.legislationType}` : ''}
+                        </div>
+                      )}
+                      {entry.rows.map((row, ri) => (
+                        <div key={ri} style={{ marginBottom: ri < entry.rows.length - 1 ? '16px' : 0, borderLeft: '3px solid var(--border-default)', paddingLeft: '12px' }}>
+                          {row.note && (
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '8px', fontStyle: 'italic' }}>
+                              <span style={{ fontWeight: 700, fontStyle: 'normal', color: 'var(--text-muted)' }}>Note: </span>{row.note}
+                            </div>
+                          )}
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            {row.proposed && (
+                              <div>
+                                <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--teal)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Proposed (修正)</div>
+                                <div style={{ fontSize: '0.775rem', color: 'var(--text-primary)', lineHeight: 1.6, whiteSpace: 'pre-line', background: 'var(--bg-subtle)', padding: '8px', borderRadius: 'var(--radius-sm)' }}>{row.proposed}</div>
+                              </div>
+                            )}
+                            {row.current && (
+                              <div>
+                                <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>Current Law (現行)</div>
+                                <div style={{ fontSize: '0.775rem', color: 'var(--text-secondary)', lineHeight: 1.6, whiteSpace: 'pre-line', background: 'var(--bg-subtle)', padding: '8px', borderRadius: 'var(--radius-sm)' }}>{row.current}</div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </Panel>
+              )}
+
+              {/* Link to official PDF */}
+              {billText.pdfUrl && (
+                <Panel title="Official document">
+                  <a href={billText.pdfUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--teal)', textDecoration: 'underline', fontSize: '0.875rem' }}>
+                    Download official PDF (關係文書) →
+                  </a>
+                </Panel>
+              )}
+            </>
           )}
         </div>
       )}
