@@ -192,7 +192,7 @@ function Watchlist() {
   const allFilteredSelected = filtered.length > 0 && filtered.every((i) => selectedBills.has(i.billId));
 
   return (
-    <div style={{ paddingBottom: reportMode ? '80px' : 0 }}>
+    <div style={{ paddingBottom: reportMode ? '112px' : 0 }}>
       {/* Header */}
       <div style={{ marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
@@ -410,7 +410,7 @@ function Watchlist() {
       {reportMode && (
         <div style={{
           position: 'fixed',
-          bottom: 0,
+          bottom: 'var(--statusbar-height)',
           left: 0,
           right: 0,
           background: 'var(--bg-elevated)',
