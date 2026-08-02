@@ -98,6 +98,7 @@ router.get('/', async (req, res) => {
           category: true,
           status: true,
           proposer: true,
+          introDate: true,
           latestProgressDate: true,
           sectors: true,
           url: true,

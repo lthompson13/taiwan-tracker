@@ -653,6 +653,17 @@ function BillDetail() {
           <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)' }}>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500, marginBottom: '8px' }}>Tags</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+              {/* System tags (sectors) — read-only */}
+              {Array.isArray(bill.sectors) && bill.sectors.map((s) => (
+                <span
+                  key={`sys-${s}`}
+                  title="System tag — auto-assigned based on bill content"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', border: '1px solid var(--border-default)', background: 'var(--bg-subtle)', color: 'var(--text-muted)', fontSize: '0.775rem', cursor: 'default', userSelect: 'none' }}
+                >
+                  {s}
+                  <span style={{ fontSize: '0.6rem', opacity: 0.55, fontWeight: 700 }}>SYS</span>
+                </span>
+              ))}
               {/* Applied tags — click to remove */}
               {billTags.map((tag) => (
                 <button

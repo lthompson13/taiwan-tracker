@@ -304,9 +304,16 @@ function Bills() {
                         Term {bill.term}{bill.session ? ` · Session ${bill.session}` : ''}
                       </div>
                     )}
-                    {bill.latestProgressDate && (
+                    {(bill.introDate || bill.latestProgressDate) && (
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                        {bill.latestProgressDate}
+                        {bill.introDate && bill.introDate !== bill.latestProgressDate
+                          ? `Intro ${bill.introDate}`
+                          : bill.latestProgressDate}
+                      </div>
+                    )}
+                    {bill.introDate && bill.introDate !== bill.latestProgressDate && bill.latestProgressDate && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        Updated {bill.latestProgressDate}
                       </div>
                     )}
                   </div>
