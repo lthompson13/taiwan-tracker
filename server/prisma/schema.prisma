@@ -141,7 +141,8 @@ model Bill {
   session            Int?
   category           String?
   status             String?
-  proposer           String?
+  proposer           String?  // English translated
+  proposerZh         String?  // Chinese original (for name-based search)
   source             String?
   latestProgressDate String?
   referenceNumber    String?

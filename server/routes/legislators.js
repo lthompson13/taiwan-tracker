@@ -133,7 +133,7 @@ router.get('/:name/bills', async (req, res) => {
   const skip  = (page - 1) * limit;
 
   try {
-    const where = { proposer: { contains: name, mode: 'insensitive' } };
+    const where = { proposerZh: { contains: name } };
 
     const [bills, total] = await Promise.all([
       db.bill.findMany({
